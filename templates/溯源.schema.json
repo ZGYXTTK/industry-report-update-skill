@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "溯源 manifest 行（溯源.jsonl 每行一条）",
+  "description": "把「逐条可溯源」从人工抽查升级为机器可反查的结构化记录。每行对应月报中一个承载数据的单元。",
+  "type": "object",
+  "required": ["cell", "value"],
+  "x-required-note": "出处二选一：source_file（源文件表格）或 url（网页来源）至少填一个；数值类建议补 source_key/source_field 锚点供 verify_value.py 回读",
+  "additionalProperties": true,
+  "properties": {
+    "cell": {
+      "type": "string",
+      "description": "月报单元格/段落定位，如 表3.1!C7 或 段落42"
+    },
+    "value": {
+      "type": ["string", "number"],
+      "description": "月报中呈现的值"
+    },
+    "unit": {
+      "type": "string",
+      "description": "单位，如 亿元 / 家 / %"
+    },
+    "source_file": {
+      "type": "string",
+      "description": "对应源文件表格路径（下载资料/ 下），如 沪深北交易所官网+iFinD-A股IPO在审企业汇总.csv"
+    },
+    "source_row": {
+      "type": "integer",
+      "description": "源文件中的 1-based 数据行号（不含表头；与 source_field 搭配构成锚点 B）"
+    },
+    "source_field": {
+      "type": "string",
+      "description": "源文件中的表头列名（子串匹配；锚点必填，缺省表示只验证行存在性）"
+    },
+    "source_key": {
+      "type": "string",
+      "description": "源文件键列中的目标值（如公司简称；与 source_field 搭配构成锚点 A，verify_value.py 优先使用）"
+    },
+    "source_key_col": {
+      "type": "string",
+      "description": "源文件键列表头名（可选，默认取首列）"
+    },
+    "snapshot": {
+      "type": "string",
+      "description": "网页来源的当页快照路径（sources/ 下的 HTML/PDF 存档，防链接失效后无法回核）"
+    },
+    "url": {
+      "type": "string",
+      "description": "来源网址（网页来源时）"
+    },
+    "fetched_at": {
+      "type": "string",
+      "description": "采集时间，ISO 格式 YYYY-MM-DD"
+    },
+    "as_of": {
+      "type": "string",
+      "description": "数据截至时点，YYYY-MM-DD"
+    },
+    "reporting_period": {
+      "type": "string",
+      "description": "财报期（金额类字段），如 2025年报"
+    },
+    "cross_checked": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "交叉验证通过的源名称列表"
+    },
+    "conflict": {
+      "type": "string",
+      "description": "冲突记录 + 采用源 + 理由（发生冲突时）"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["verified", "unverified", "gap"],
+      "description": "verified=已核验 / unverified=未能与官方源交叉验证 / gap=本期无法获取"
+    }
+  }
+}

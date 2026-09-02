@@ -1,0 +1,86 @@
+# ============================================================
+# industry-report-update-skill · .gitignore (Apache-2.0)
+# 公开仓库根 .gitignore：隔离运行痕迹 + 敏感数据 + 缓存
+# ============================================================
+
+# 运行痕迹（每次执行都重新生成，含业务记录，不入版本控制）
+runs/
+state/
+
+# 业务源文件（从交易所/媒体下载，可能含敏感业务快照）
+下载资料/
+download/
+sources/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# 测试临时文件
+tests/*.txt
+scripts/*.txt
+!scripts/audit/*.py
+!scripts/tests/*.py
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 虚拟环境
+venv/
+.venv/
+env/
+.env
+.env.local
+
+# 凭据（即使本仓库不存，也防御性隔离）
+credentials.json
+*credentials*.json
+*secret*.json
+*token*.json
+
+# 跨平台构建产物
+dist/
+build/
+*.egg-info/
+
+# Windows 同步冲突
+desktop.ini
+
+# 文档生成
+docs/_build/
+site/
+
+# 临时文件
+*.tmp
+*.bak
+*.log
+logs/
+
+# 真实业务报告（基目录顶层 6 份旧门禁报告可能含具体公司名）
+一致性校验报告.md
+交叉一致性报告.md
+格式对比报告.md
+溯源反查报告.md
+空值对比报告.md
+效率审计与优化方案-*.md
+
+# 真实业务行业包（不随仓库发布，由用户自行反推）
+packs/robotics/
+packs/aero/
+packs/*/！_default/
+
+# 但保留 _default
+!packs/_default/

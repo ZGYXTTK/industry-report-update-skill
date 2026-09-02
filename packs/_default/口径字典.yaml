@@ -1,0 +1,85 @@
+# =====================================================================
+# 口径字典 · _default 兜底版（脱敏骨架）
+# ---------------------------------------------------------------------
+# 用途：把字段命名 / 统计窗口 / 币种 / 单位固化下来，避免每月重新推导。
+# 使用：Step 1 数据流审计时读取；若本期旧月报口径有变，先更新本文件再采数。
+# 注意：本文件是「默认值 + 上期已确认值」，真正口径以用户 Step 4 确认为准。
+# 公开版字段：所有字段值脱敏为占位符 <...>，由用户激活后人工补完。
+# =====================================================================
+
+版本: "1.0"
+
+# ---------- 赛道与状态口径（必须用户 Step 4 确认后固化） ----------
+# 公开版留空，由用户填具体行业：
+#   赛道定义: "人形机器人/工业机器人/服务机器人/核心零部件（按旧月报分类列反推）"
+#   在审定义: "沪深北交易所在审池（剔除注册生效/已上市多年/已终止/已中止）"
+#   辅导备案定义: "证监会辅导备案公示名单中处于辅导期状态"
+#   港股在审定义: "披露易无全量名单接口，用「基线 − 已上市 − 已失效 + 新递表」推算，并标注不确定性"
+#   再融资定义: "上交所/深交所再融资审核项目（非 IPO，勿混用 sqlId）"
+#   并购重组定义: "上交所/深交所并购重组审核项目"
+
+# ---------- 状态码映射（跨月不变，勿靠记忆） ----------
+# 各交易所 IPO 状态码由用户按本行业披露特点填写
+状态码:
+  # 示例：北交所 IPO 状态码（用户可删改）
+  北交所IPO:
+    P01: 受理
+    P02: 问询
+    P03: 过会
+    P05: 提交注册
+    P06: 提交注册
+    P07: 注册生效
+    P09: 中止
+    P10: 终止
+  上交所IPO:
+    已受理: 受理
+    已问询: 问询
+    上市委会议: 过会
+    提交注册: 提交注册
+    注册生效: 注册生效
+    中止: 中止
+    终止: 终止
+  深交所IPO:
+    已受理: 受理
+    已问询: 问询
+    上市委会议: 过会
+    提交注册: 提交注册
+    注册生效: 注册生效
+    中止: 中止
+    终止: 终止
+
+# ---------- 采集通道（「怎么采」的元信息，与采集清单.yaml 呼应） ----------
+# 用户可按需启用/添加具体通道
+采集通道:
+  上交所科创板IPO:
+    endpoint: "query.sse.com.cn/commonExcelKcb.do?sqlId=SH_XM_LB"
+    过滤: "筛『在审』状态"
+    剔除: "注册生效 / 已上市多年"
+  上交所再融资:
+    endpoint: "query.sse.com.cn/commonExcelKcb.do?sqlId=GP_ZRZ_XMLB"
+    注意: "非 IPO，别混用"
+  上交所并购重组:
+    endpoint: "query.sse.com.cn/commonExcelKcb.do?sqlId=GP_BGCZ_XMLB"
+  深交所IPO:
+    endpoint: "szse.cn/api/ras/projectrends/query?bizType=1"
+    注意: "分页可能失效，用 start 偏移或多次拉取去重，必要时 iFinD 逐家补核"
+  深交所再融资:
+    endpoint: "szse.cn/api/ras/projectrends/query?bizType=2"
+  深交所并购:
+    endpoint: "szse.cn/api/ras/projectrends/query?bizType=3"
+  北交所IPO:
+    method: "POST"
+    endpoint: "bse.cn/projectNewsController/infoResult.do"
+    注意: "excelExport.do 返回 0 字节不可用；用 infoResult.do（form: statetypes[]/page/sortfield/needFields[]）"
+  证监会辅导备案:
+    endpoint: "eid.csrc.gov.cn/fd.html"
+    协议: "必须 http 非 https（https 会 SSL 握手失败）"
+    翻页: "csrcfd/index_N.html"
+  港交所披露易:
+    endpoint: "www1.hkexnews.hk/search/titlesearch.xhtml 或 mcp-hkexnews"
+    无全量名单: true
+    推算方式: "基线 ± 已上市 ± 已失效 + 新递表"
+  美股SEC:
+    endpoint: "data.sec.gov/submissions/CIK##########.json"
+  巨潮资讯:
+    endpoint: "cninfo.com.cn/new/hisAnnouncement/query"

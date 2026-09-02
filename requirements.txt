@@ -1,0 +1,25 @@
+# industry-report-update-skill · runtime dependencies (Apache-2.0)
+# 本 Skill 公开版（v1.0.0）依赖清单
+# 安装：pip install -r requirements.txt
+
+# === 必装（核心功能） ===
+python-docx>=0.8.11      # docx 读写 + 格式保真改写
+requests>=2.31            # HTTP 直连（上交所/深交所/披露易等）
+
+# === 强烈推荐（YAML 配置加载） ===
+# 注意：无 PyYAML 时 scripts/yaml_lite.py mini 回退可用，但不支持 YAML 锚点/多文档
+PyYAML>=6.0
+
+# === 可选（MCP 数据通道按需） ===
+# 注：本 Skill 不直接 require 任何 MCP，由宿主 Agent 环境配置。
+# mx-ds-mcp / hexin-ifind-ds / qcc / itjuzi / qcc-document / qcc-tender / tavily-search
+# 等通道由用户在 discovery.json + tool_registry.yaml 显式登记。
+
+# === 可选（数据源适配器懒加载） ===
+# datasources/adapters.py 在处理上交所 .xls 时需要
+xlrd==1.2.0              # 读上交所老式 .xls（注意：必须 1.2.0，2.x 不支持 .xls）
+pandas>=2.0              # CSV/DataFrame 处理
+openpyxl>=3.1            # .xlsx 处理
+
+# === 评估（可选，但 run_evals.py 推荐安装） ===
+jsonschema>=4.20         # config schema 强校验

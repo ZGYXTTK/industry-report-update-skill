@@ -1,0 +1,35 @@
+{
+  "_说明": "content/meta.json 结构示例（P2-2 约定）。ops 按序执行；表格支持 index 或 header_contains 定位；行业特有逻辑写 hooks.py 的 run(ed, content)。",
+  "cover": {
+    "date": "2026 年 8 月",
+    "keyword": "本期关键词：……"
+  },
+  "ops": [
+    {"op": "set_text_prefix", "prefix": "2026 年 7 月", "text": "2026 年 8 月"},
+    {"op": "set_text_prefix", "prefix": "本期关键词", "text": "本期关键词：我国首次实现运载火箭一子级陆地回收"},
+
+    {"op": "replace_range", "start": "1.重要政策", "end": "2.重大合同", "items": [
+      "（1）《民用航空发展“十五五”规划》印发",
+      "8 月 7 日，民航局、国家发展改革委、交通运输部联合印发……（正文摘要，逐条溯源见采集记录）",
+      "（2）商务部加强无人机相关两用物项对美国出口管制",
+      "8 月 5 日，商务部发布 2026 年第 34 号公告……"
+    ]},
+
+    {"op": "strip_vmerge", "table": {"index": 0}},
+    {"op": "fill_table", "table": {"header_contains": "热点事件"}, "rows": [
+      ["1", "朱雀三号遥二发射成功并实现我国首次火箭一子级陆地回收", "蓝箭航天空间科技股份有限公司", "注册资本：36,000 万元", "民营运载火箭研制与发射服务", "湖州星瀚 7.95% 等"]
+    ]},
+
+    {"op": "fill_table", "table": {"index": 9}, "rows": [
+      ["1", "2026-08-25", "天秦装备（300922.SZ）", "专用防护装置及装备零部件", "西安亿利华不低于51%股权", "航空航天精密弹簧制造商", "现金", "已签署收购意向协议", "不超过 8,900 万元"]
+    ]},
+
+    {"op": "delete_contains", "patterns": ["应收账款周转率", "占营收 56.74%", "总体而言，7 月"], "start_prefix": "五、二级市场"},
+
+    {"op": "replace_image", "target": "word/media/image8.jpeg", "path": "chart_hangkong_aug.png"},
+
+    {"op": "note_after_table", "table": {"header_contains": "公司简称"}, "text": "注：审核状态较上月均未变化；财务数据为 2025 年度（申报稿口径）。"},
+
+    {"op": "exec_python", "file": "hooks.py"}
+  ]
+}

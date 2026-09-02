@@ -1,0 +1,18 @@
+{
+  "name": "industry-report-update-skill",
+  "version": "1.0.0",
+  "description": "行业月报更新端到端生成（开源版）。以旧月报 docx 为模具，按月重采数据、9+ 道门禁校验、强制镜像到工作区。",
+  "author": {
+    "name": "industry-report-update-skill authors"
+  },
+  "homepage": "https://github.com/<OWNER>/industry-report-update-skill",
+  "repository": "https://github.com/<OWNER>/industry-report-update-skill",
+  "license": "Apache-2.0",
+  "keywords": [
+    "industry-report",
+    "monthly-report",
+    "equity-research",
+    "docx-automation",
+    "data-lineage"
+  ]
+}

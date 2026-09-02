@@ -1,0 +1,71 @@
+# =====================================================================
+# 渠道状态 · _default 兜底版（脱敏骨架）
+# ---------------------------------------------------------------------
+# 用途：让 channel_health_check.py 与下月开局有对照基准
+# 维护：每月 Step 0.5 自检后更新
+# 注意：✅ = 正常可用；🟡 = 降级使用（具体降级链看 通道降级日志.md）；
+#       ❌ = 不可用（连续 2 个月触发续费提示）
+# 公开版：留空骨架 + 通用备注，由用户激活后按实际状态填充。
+# =====================================================================
+
+版本: "1.0"
+快照日期: "首次激活后填写"
+
+渠道:
+  上交所commonExcelKcb:
+    状态: "⏳ 待首次 health_check"
+    备注: "返回 .xls 老格式，xlrd 解析"
+  深交所projectrends:
+    状态: "⏳ 待首次 health_check"
+    备注: "bizType=1/2/3；分页可能存在 pageSize 上限，逐家检索为降级路径"
+  北交所infoResult:
+    状态: "⏳ 待首次 health_check"
+    备注: "WAF 重置常见；失败时按 iFinD/媒体降级"
+  证监会eid.csrc.gov.cn:
+    状态: "⏳ 待首次 health_check"
+    备注: "必须 http 非 https；翻页 index_N.html"
+  hkexnews披露易:
+    状态: "⏳ 待首次 health_check"
+    备注: "无全量在审名单接口；按基线±变化推算+标注不确定性"
+  巨潮资讯:
+    状态: "⏳ 待首次 health_check"
+    备注: "招股书/年报 PDF 下载稳定；跨市场一手文件补全源"
+  qcc企查查:
+    状态: "⏳ 待首次 health_check"
+    备注: "get_company_registration_info 必须全称；简称需用 get_company_by_query 消歧"
+  mcp__mx-ds-mcp__mx_ashare_finance_data:
+    状态: "⏳ 待首次 health_check"
+    备注: "东方财富数据浏览器；A 股市值/财报/IPO 数据"
+  mcp__mx-ds-mcp__mx_hk_finance_data:
+    状态: "⏳ 待首次 health_check"
+    备注: "港股发行价/募资/市值"
+  mcp__mx-ds-mcp__mx_finance_search_news:
+    状态: "⏳ 待首次 health_check"
+    备注: "A/港/美股公告与新闻检索"
+  mcp__hexin-ifind-ds-stock-mcp__*:
+    状态: "⏳ 待首次 health_check"
+    备注: "同花顺 iFinD 财务/行情/资讯全套"
+  mcp__wind_stock_data__*:
+    状态: "⏳ 待首次 health_check"
+    备注: "Wind A 股 K 线/财务/股东"
+  mcp__itjuzi-mcp__*:
+    状态: "⏳ 待首次 health_check"
+    备注: "IT 桔子一级市场融资事件；按量计费"
+  mcp__mcp__get_data:
+    状态: "⏳ 待首次 health_check"
+    备注: "烯牛数据；get_table_columns 取表结构"
+  mcp__dknowc__trusted_search:
+    状态: "⏳ 待首次 health_check"
+    备注: "政策原文与可信溯源来源"
+  mcp__qcc-document__parse_document:
+    状态: "⏳ 待首次 health_check"
+    备注: "招股书 PDF 解析"
+  web_search:
+    状态: "⏳ 待首次 health_check"
+    备注: "通用网络检索；引用必须标注来源 URL"
+  agent subagent 通道:
+    状态: "⏳ 待首次 health_check"
+    备注: "派生子任务执行"
+  workflow 通道:
+    状态: "⏳ 待首次 health_check"
+    备注: "多 agent 编排"

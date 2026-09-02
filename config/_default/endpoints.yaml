@@ -1,0 +1,89 @@
+# =====================================================================
+# endpoints.yaml · _default 兜底版（脱敏骨架）
+# ---------------------------------------------------------------------
+# 用途：channel_health_check.py 的探测目标全部来自本文件；
+#       交易所/官网改接口时只改这里，不动脚本。
+# 结构：http通道（脚本直接探测）/ mcp通道（Agent 实测后回写 通道实测.jsonl，
+#       脚本只校验新鲜度与结论）/ agent通道（同理）。
+# 注意：headers/body 为字符串字典；kind 仅作备注（xls/json/html/mcp/agent）。
+# 公开版：删除含 token/credentials 路径的通道，仅保留公开 URL。
+# =====================================================================
+
+版本: "1.0"
+
+http通道:
+  - name: 上交所commonExcelKcb
+    url: "https://query.sse.com.cn/commonExcelKcb.do?sqlId=SH_XM_LB"
+    method: GET
+    kind: xls
+    headers:
+      Referer: "https://www.sse.com.cn/"
+
+  - name: 深交所projectrends
+    url: "https://www.szse.cn/api/ras/projectrends/query?bizType=1&random=0.5&start=0&pageSize=10"
+    method: GET
+    kind: json
+    headers:
+      Referer: "https://listing.szse.cn/projectdynamic/ipo/index.html"
+
+  - name: 北交所infoResult
+    url: "https://www.bse.cn/projectNewsController/infoResult.do"
+    method: POST
+    kind: json
+    headers:
+      Referer: "https://www.bse.cn/"
+      Content-Type: "application/x-www-form-urlencoded"
+    body:
+      "statetypes[]": "P01,P02,P03,P05,P06,P07"
+      page: "1"
+    note: "WAF 已知问题，失败时走媒体降级"
+
+  - name: 证监会eid.csrc.gov.cn
+    url: "http://eid.csrc.gov.cn/fd.html"
+    method: GET
+    kind: html
+    headers:
+      User-Agent: "Mozilla/5.0"
+
+  - name: hkexnews披露易
+    url: "https://www1.hkexnews.hk/search/titlesearch.xhtml?lang=zh"
+    method: GET
+    kind: html
+
+  - name: 巨潮资讯
+    url: "http://www.cninfo.com.cn/new/index"
+    method: GET
+    kind: html
+    headers:
+      User-Agent: "Mozilla/5.0"
+
+mcp通道:
+  - name: mcp__qveris__discover
+    smoke_hint: "用 discover 检索 1 类所需数据（如 A股IPO/一级市场融资），确认其能聚合的远程工具"
+    note: "工具仓库：先 discover 再 call；按量计费，作降级/交叉验证补充"
+  - name: mcp__mx-ds-mcp__mx_ashare_finance_data
+    smoke_hint: "取 1 只 A 股基本资料样例"
+  - name: mcp__mx-ds-mcp__mx_hk_finance_data
+    smoke_hint: "取 1 只港股基本资料样例"
+  - name: mcp__hexin-ifind-ds-stock-mcp__get_stock_summary
+    smoke_hint: "取 1 只股票摘要"
+  - name: mcp__wind_stock_data__get_stock_basicinfo
+    smoke_hint: "取 1 只股票档案"
+  - name: mcp__itjuzi-mcp__search_events
+    smoke_hint: "检索近 30 天融资事件 1 页"
+  - name: mcp__mcp__get_data
+    smoke_hint: "get_table_columns 任意表"
+  - name: mcp__dknowc__trusted_search
+    smoke_hint: "检索 1 条政策原文"
+  - name: mcp__qcc-document__parse_document
+    smoke_hint: "解析 1 页测试 PDF"
+  - name: mcp__qcc__get_company_registration_info
+    smoke_hint: "取 1 家公司工商基本信息"
+  - name: mcp__tavily-search__tavily_search
+    smoke_hint: "检索 1 个查询"
+
+agent通道:
+  - name: subagent
+    smoke_hint: "派 1 个最小子任务（返回一句话即可）"
+  - name: workflow
+    smoke_hint: "跑 1 个 agent() 最小编排"

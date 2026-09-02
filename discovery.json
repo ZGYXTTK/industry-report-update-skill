@@ -1,0 +1,258 @@
+{
+  "name": "industry-report-update-skill",
+  "version": "1.0.0",
+  "decision_contract": {
+    "question": "用户是否提供了上一期行业月报 docx，且希望生成下一期月报？",
+    "trigger": "用户输入『行业月报更新 / 月报更新 / 生成最新月报 / 更新月报 / generate monthly report』，或等价中文/英文表达",
+    "decision": "满足 trigger 且用户提供上一期 docx → 执行本 Skill；不满足 → 拒绝并提示使用其他 Skill",
+    "evidence": "用户输入触发词 + 用户上传/指向 docx 文件；本机有 python-docx + Python 3.10+",
+    "success_measure": "新月报 .docx 生成成功 + 9 道门禁全过（硬门槛）+ 工作区镜像完成（`archive_to_workspace.py` exit 0）"
+  },
+  "real_world_outcome": "用户从『每月手工抄数+word 排版+Excel 对数+邮件来回校稿』的 8 小时工作，缩短为『指定旧月报 → 4 小时内自动出新月报 → 盲审核对 → 交付』，每条数据可溯源到具体源文件",
+  "intended_users": [
+    "卖方研究员的行业分析师 / 助理分析师",
+    "公募/私募基金的行业研究员",
+    "战略咨询的赛道研究顾问",
+    "需要每月例行产出行业月报的研究团队"
+  ],
+  "input_types": [
+    "上一期月报 .docx（必填，作为结构模板与口径参考）",
+    "数据截至日期（可选，默认当月最后一天）",
+    "专题研究要求（可选，仅当月报含专题章节时）",
+    "行业包名（可选，默认 `_default` 兜底）"
+  ],
+  "output_artifacts": [
+    "新月报 .docx（与旧月报结构保真 ≥95%）",
+    "runs/<run-id>/六件套：input/output/logs/download/sources/reviews + manifest.json",
+    "9 道门禁报告 + 门禁状态.json（断点续跑依据）",
+    "工作区归档 `<工作区>/<产品名>_产出/`（Step 9.5 强制）"
+  ],
+  "use_cases": [
+    {
+      "name": "卖方行业月报按月更新",
+      "description": "沪深北交易所审核项目按月重采；行业新闻/政策按月重采；公司财务按最新财报期重采；专题章节按 `专题研究.skill` 独立执行"
+    },
+    {
+      "name": "一级市场募资月报按月更新",
+      "description": "IT 桔子/烯牛等一级市场数据按月重采；赛道白名单按 `packs/_default/标的池.yaml` 过滤"
+    },
+    {
+      "name": "新技术/新政策追踪月报",
+      "description": "政策原文 + 行业媒体 + 公司公告三重交叉验证；新增行业包仅需 `python scripts/pack.py wizard 旧月报.docx --name <行业>` 反推"
+    },
+    {
+      "name": "非机器人/科技赛道（如医疗、新能源、消费）月报",
+      "description": "由 `_default` 兜底包起步，跑 wizard 反推行业骨架，人工补 `packs/<行业>/标的池.yaml` 后 activate"
+    },
+    {
+      "name": "门禁回归测试",
+      "description": "`python scripts/run_evals.py --rollout` 用 fixtures 正负双向冒烟，确保 11 道门禁不误杀也不漏杀"
+    }
+  ],
+  "invocation_examples": [
+    "/industry-report-update-skill 帮我把 2026.8 月报更新到 2026.9",
+    "行业月报更新，旧月报路径 D:/reports/工业机器人2026.8.docx",
+    "Generate monthly report from this old version",
+    "/industry-report-update-skill --old ./上月.docx --ym 2026-09 --pack aerospace"
+  ],
+  "permissions_and_systems": {
+    "filesystem": "读/写 runs/state/下载资料/工作区归档目录",
+    "network": "HTTP 直连交易所/证监会/披露易/巨潮等公开来源；MCP 调用需宿主授权（mx-ds-mcp / hexin-ifind-ds / qcc / itjuzi 等）",
+    "mcp_dependencies": [
+      "mx-ds-mcp（东方财富，可选降级通道）",
+      "hexin-ifind-ds（同花顺 iFinD，可选降级通道）",
+      "qcc（企查查，工商字段）",
+      "itjuzi（IT 桔子，一级市场）",
+      "qcc-document（招股书解析）",
+      "qcc-tender（招投标）",
+      "tavily-search（搜索，可选）"
+    ],
+    "python_packages": [
+      "python-docx>=0.8.11",
+      "requests>=2.31",
+      "PyYAML（可选，无则 yaml_lite mini 回退）",
+      "pandas（可选）",
+      "xlrd==1.2.0（可选）",
+      "openpyxl>=3.1（可选）"
+    ],
+    "external_endpoints": [
+      "https://query.sse.com.cn/",
+      "https://www.szse.cn/",
+      "https://www.bse.cn/",
+      "http://eid.csrc.gov.cn/",
+      "https://www1.hkexnews.hk/",
+      "http://www.cninfo.com.cn/"
+    ]
+  },
+  "typical_completion_time": "首跑 2-4 小时（含数据采集 1-2 小时、门禁循环 30 分钟、盲审 30 分钟）；成熟用户月度迭代 1-2 小时",
+  "platform_compatibility": {
+    "tier_1_native_skill_md": [
+      "Claude Code",
+      "Cursor",
+      "Gemini CLI",
+      "Kiro",
+      "Goose",
+      "OpenCode",
+      "Cline",
+      "Roo Code",
+      "Kilo",
+      "Factory",
+      "Antigravity",
+      "Codex CLI"
+    ],
+    "tier_2_auto_adapted": [
+      "Windsurf",
+      "Trae",
+      "Junie"
+    ],
+    "tier_3_manual": [
+      "Zed",
+      "Augment",
+      "Aider",
+      "Continue.dev"
+    ]
+  },
+  "environment_discovery": {
+    "python_check": "python --version（要求 3.10+）",
+    "dependencies_check": "pip install -r requirements.txt",
+    "mcp_check": "宿主环境配置 MCP servers（按需）；缺失时按降级链降级并标注",
+    "workspace_check": "用户当前对话工作区可写（DSH Harness / Claude Code / 通用 CLI 各有差异，见 docs/USAGE.md）"
+  },
+  "risk_boundaries": {
+    "data_loss": "中——若 docx 在 Word/WPS 中被占用，脚本输出到 .tmp.docx，等用户关闭后覆盖",
+    "credential_leakage": "低——仓库不包含任何 API key / token；tool_registry.yaml 中 `credentials.json` 仅为路径提示，实际文件位于仓库外",
+    "false_positive": "中——format_diff 相似度阈值 95% 可能因图表/嵌入对象视觉差异被判低，需人工复核",
+    "false_negative": "低——11 道门禁交叉验证，盲审作为兜底",
+    "rate_limit": "取决于宿主 MCP 通道（mx-ds-mcp / iFinD 等）；按 endpoints.yaml 的降级链切换",
+    "scope_creep": "拒绝：周报/季报/年报、双公司专题（走姊妹 Skill）、无模板从零写、只给主题不给旧报"
+  },
+  "mutation_boundaries": {
+    "read_only_inputs": "旧月报 docx、用户确认.md、源 CSV（来自下载资料/）",
+    "writable_artifacts": "新月报 docx、runs/<run-id>/、工作区归档 <工作区>/<产品名>_产出/",
+    "no_overwrite": "runs/ 历史归档、state/渠道历史.jsonl、口径快照（除非新版本号）",
+    "atomic_operations": "新月报生成前先输出 .tmp.docx，验证通过后再覆盖"
+  },
+  "software_mutation_review": {
+    "applies": true,
+    "affected_structures": [
+      "config/_default/*.yaml（口径字典/采集清单/权威源映射/时点对齐/标的池）",
+      "config/_default/endpoints.yaml（通道端点）",
+      "config/_default/tool_registry.yaml（本机信息源注册表）"
+    ],
+    "invariants": [
+      "YAML 必须含 version 字段；禁止裸改——新增版本号 + 备份旧版 + 变更摘要列差异",
+      "tool_registry 中 kind=registry 信息源必须执行一次 discover/搜索并记录 found_tools",
+      "endpoints.yaml 通道名必须出现在 tool_registry.yaml 的 call/tools 列表"
+    ],
+    "single_source_of_truth": "口径字典定义字段命名；权威源映射定义字段维度权威源；时点对齐定义跨源时点映射；标的池定义赛道白名单",
+    "invalid_states": [
+      "采集项缺字段",
+      "通道名未在注册表定义",
+      "权威源映射与口径字典冲突",
+      "标的池与行业包 RULES.md 冲突"
+    ],
+    "allowed_transitions": [
+      "新增字段：先改 schema → 改值 → 落盘快照",
+      "更换通道：endpoints.yaml + tool_registry.yaml 同步更新",
+      "新增行业包：wizard 生成骨架 → 人工补完 → activate"
+    ]
+  },
+  "structured_data_interfaces": {
+    "applies": true,
+    "interfaces": [
+      {
+        "name": "上交所科创板 IPO",
+        "endpoint": "https://query.sse.com.cn/commonExcelKcb.do?sqlId=SH_XM_LB",
+        "format": "UTF-8 CSV 文本（导出 .xls 实为 CSV）",
+        "pagination": "无分页（单次全量）",
+        "freshness": "T+1 盘后",
+        "nullability": "无 NULL 字段约定"
+      },
+      {
+        "name": "深交所 IPO",
+        "endpoint": "https://www.szse.cn/api/ras/projectrends/query?bizType=1",
+        "format": "JSON",
+        "pagination": "start/pageSize 参数分页（实测 start 失效，pageSize 上限 100）",
+        "freshness": "T+1 盘后"
+      },
+      {
+        "name": "北交所 IPO",
+        "endpoint": "https://www.bse.cn/projectNewsController/infoResult.do（POST）",
+        "format": "JSON（注意：excelExport.do 返回 0 字节不可用）",
+        "pagination": "page/sortfield/needFields[]",
+        "freshness": "T+1 盘后"
+      },
+      {
+        "name": "证监会辅导备案",
+        "endpoint": "http://eid.csrc.gov.cn/fd.html（必须 http 非 https，https SSL 握手失败）",
+        "format": "HTML 翻页（csrcfd/index_N.html）",
+        "pagination": "翻页",
+        "freshness": "T+1"
+      },
+      {
+        "name": "港交所披露易",
+        "endpoint": "https://www1.hkexnews.hk/search/titlesearch.xhtml 或 mcp-hkexnews",
+        "format": "HTML（无全量名单接口）",
+        "freshness": "实时"
+      },
+      {
+        "name": "巨潮资讯",
+        "endpoint": "http://www.cninfo.com.cn/new/hisAnnouncement/query",
+        "format": "JSON",
+        "freshness": "实时"
+      }
+    ],
+    "readiness_checks": [
+      "WAF/SSL 探测（如北交所 ConnectionResetError 10054 常态化）",
+      "Channel Health（channel_health_check.py）必须 exit 0 才进入 Step 2",
+      "MCP 通道必须 smoke test 实测一次后回写 通道实测.jsonl（status: ok/degraded/fail）"
+    ]
+  },
+  "governed_semantic_contracts": {
+    "applies": true,
+    "contracts": [
+      {
+        "field": "赛道定义",
+        "decision": "人形机器人 / 工业机器人 / 服务机器人 / 核心零部件（按旧月报分类列反推）",
+        "owner": "industry analyst",
+        "precedence": "用户 Step 4 确认 > packs/<行业>/口径字典.yaml > 默认兜底",
+        "review_interval_days": 30
+      },
+      {
+        "field": "在审定义",
+        "decision": "沪深北交易所在审池（剔除注册生效/已上市多年/已终止/已中止）",
+        "owner": "industry analyst",
+        "precedence": "交易所官网 > iFinD/Wind > 媒体",
+        "review_interval_days": 7
+      },
+      {
+        "field": "金额单位",
+        "decision": "万元 / 亿元 / 美元（不允许同表混用；港股默认港元，A 股默认人民币）",
+        "owner": "report owner",
+        "precedence": "公司公告披露口径 > 用户确认 > 默认",
+        "review_interval_days": 30
+      }
+    ],
+    "legitimate_outcomes": {
+      "answer": "用户已确认的口径 → 执行采集 + 改写",
+      "ask": "Step 4 一次性确认清单（必填 ≤5 条）",
+      "refuse_unknown": "未取得招股书 / 本期无法获取 / —（禁止编造）"
+    }
+  },
+  "positive_routing_tests": [
+    "用户提供旧月报 docx + 触发词『更新月报』 → 应触发本 Skill",
+    "用户提供 docx + 触发词『月报』 → 应触发本 Skill",
+    "用户上传 docx 但未说触发词 + 上下文是研究月度报告 → 应触发本 Skill"
+  ],
+  "negative_routing_tests": [
+    "用户说『帮我做周报』 → 应拒绝并提示季报/年报走其他 Skill",
+    "用户说『双公司对比』 → 应拒绝并提示走 `专题研究.skill/`",
+    "用户只给主题『新能源』不给 docx → 应拒绝并提示需要上期模板",
+    "用户要求周报/季报/年报 → 应拒绝（仅支持月报）"
+  ],
+  "support_tier": "active",
+  "metadata": {
+    "owners": null,
+    "approval_status": null
+  }
+}
