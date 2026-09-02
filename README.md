@@ -44,7 +44,7 @@ python scripts/run.py ./上月.docx --ym 2026-09 --ws "D:\工作区"
 ## 三条铁律（Skill 灵魂）
 
 1. **数据流审计**：旧月报 = 结构模板 + 口径参考，**绝不沿用数值**。时点型按月重采完整枚举。
-2. **格式保真**：就地改写（`docx_utils.set_para_text_keep_fmt`），**禁止** `cell.text = value` / `Document()+add_paragraph+add_table` 从零重建。`format_diff` ≥ 95% 是硬门槛。
+2. **格式保真**：就地改写（`docx_utils.set_cell_keep` / `set_para_keep`），**禁止** `cell.text = value` / `Document()+add_paragraph+add_table` 从零重建。`format_diff` ≥ 95% 是硬门槛。
 3. **工具盘点先于标 ✅**：所有 MCP / HTTP 通道必须先 smoke test 实测一次，未实测只能标 🟡。
 
 ---
@@ -74,7 +74,7 @@ python scripts/run.py ./上月.docx --ym 2026-09 --ws "D:\工作区"
 ### 方式 1 · Claude Code marketplace
 
 ```bash
-/plugin marketplace add <OWNER>/industry-report-update-skill
+/plugin marketplace add ZGYXTTK/industry-report-update-skill
 ```
 
 ### 方式 2 · 安装器（推荐）
@@ -87,7 +87,7 @@ pwsh -File install.ps1     # Windows（Junction，非管理员可用）
 ### 方式 3 · git clone 到工具原生路径
 
 ```bash
-git clone https://github.com/<OWNER>/industry-report-update-skill.git <目标路径>/industry-report-update-skill
+git clone https://github.com/ZGYXTTK/industry-report-update-skill.git <目标路径>/industry-report-update-skill
 ```
 
 | 工具 | 路径 |
@@ -119,7 +119,7 @@ industry-report-update-skill/
 │   ├── USAGE.md            # 详细使用 SOP（每月流程 + 故障排查 + 命令参考）
 │   └── EXAMPLES.md         # 8 个扩展示例（新增行业包 / 采集项 / 门禁 / 端点）
 ├── config/
-│   └── _default/           # 兜底行业包配置（5 YAML + endpoints + tool_registry + agent_health + 渠道状态）
+│   └── _default/           # 兜底行业包配置（9 YAML：5 赛道 + endpoints + tool_registry + agent_health + 渠道状态）
 ├── packs/
 │   ├── README.md           # 行业包机制说明
 │   └── _default/           # 兜底行业包骨架（5 YAML + RULES.md + README.md）
@@ -128,28 +128,34 @@ industry-report-update-skill/
 │   ├── run_evals.py        # 评估器（fixtures 正负双向冒烟）
 │   ├── build_report.py     # 声明式构建引擎
 │   ├── docx_build.py       # 原语库
-│   ├── docx_utils.py       # 保真改写工具库
+│   ├── docx_utils.py       # 保真改写工具库（v2 函数族）
 │   ├── yaml_lite.py        # 统一 YAML 加载器（PyYAML + mini 回退）
 │   ├── pack.py             # 行业包管理（list/activate/wizard）
 │   ├── snapshot.py         # 口径快照 + 深 diff
 │   ├── manifest.py         # 运行契约（runs/<run-id>/manifest.json）
 │   ├── metrics.py          # 跨月度量
 │   ├── channel_health_check.py  # 通道健康度自检
-│   ├── channel_pick.py     # 通道排序（P1
+│   ├── channel_pick.py     # 通道排序（P1）
 │   ├── workspace.py        # 工作区探测
 │   ├── archive_to_workspace.py  # 工作区归档（P0-11 强制收尾）
 │   ├── tool_inventory.py   # 工具盘点机检（阻断级）
-│   ├── checkpoint.py       # 采集项
+│   ├── checkpoint.py       # 采集项断点
 │   ├── conflict_classify.py  # 冲突分级
 │   ├── audit/              # 11 道门禁（extract_numbers/config_check/diff_empty/...）
 │   ├── datasources/adapters.py  # 数据源适配器
-│   └── tests/test_p0f_fixes.py  # 回归测试
+│   └── tests/
+│       ├── test_p0_fixes.py        # P0 修复回归
+│       └── test_reasonableness_parse.py  # 合理性检查解析单元
 ├── templates/              # 确认清单 / 变更摘要 / 溯源 schema / 子 Agent 任务
 ├── references/
 │   ├── discipline.md       # P0/P1/P2 三级纪律全文
 │   └── gotchas.md          # 20 条避坑手册
 ├── 专题研究.skill/          # 专题对比独立子 Skill（manifest 契约对接）
-├── evals/                  # 评估（fixtures 正负双向 + run_evals 一键）
+│   └── SKILL.md
+├── evals/
+│   ├── industry-report-update.eval.md  # 评估 spec（11 道门禁断言 + 评分）
+│   └── cases/
+│       └── make_fixtures.py        # fixtures 生成器
 └── .claude-plugin/
     └── plugin.json          # Claude Code marketplace 注册
 ```
@@ -192,11 +198,11 @@ pip install -r requirements.txt
 
 | 文档 | 用途 |
 | --- | --- |
-| `SKILL.md` | 主入口（铁律 + 10 步闭环 + 9 道门禁 + 纪律分级） |
+| `SKILL.md` | 主入口（铁律 + 10 步闭环 + 11 道门禁 + 纪律分级） |
 | `AGENTS.md` | 精简入口（Codex CLI 等优先读取） |
 | `README.md` | 项目概览（本文件） |
-| `使用说明.md` | 中文使用说明（触发方式 + 输入输出 + 9 步详解） |
-| `修改示例.md` | 实战反推案例（脱敏通用版） |
+| `使用说明.md` | 中文使用说明（触发方式 + 输入输出 + 10 步详解） |
+| `修改示例.md` | 通用反推案例（脱敏通用版） |
 | `docs/USAGE.md` | 详细 SOP（每月流程 + 故障排查 + 命令参考） |
 | `docs/EXAMPLES.md` | 8 个扩展示例 |
 | `references/discipline.md` | P0/P1/P2 三级纪律全文 |
@@ -204,6 +210,8 @@ pip install -r requirements.txt
 | `discovery.json` | 决策契约 |
 | `evals/industry-report-update.eval.md` | 评估 spec |
 | `CHANGELOG.md` | 版本变更记录 |
+| `专题研究.skill/SKILL.md` | 双公司专题对比独立子 Skill |
+| `packs/_default/RULES.md` | 兜底行业包纪律 |
 
 ---
 

@@ -39,7 +39,7 @@ def test_p01():
     inside = os.path.join(A.BASE, 'runs', 'x')
     check('_inside_base 子目录(反斜杠)', A._inside_base(inside) is True)
     check('_inside_base 等于BASE', A._inside_base(A.BASE) is True)
-    outside = r'D:\Desktop\2026.6广发证券\8.31机器人行业月报'
+    outside = r'D:\Desktop\industry-research\reports\old-monthly-report-2026-08'
     check('_inside_base 非基目录', A._inside_base(outside) is False)
     # 混合分隔符（Windows 混淆路径）
     mixed = os.path.join(A.BASE.replace('\\', '/'), 'runs', 'x')

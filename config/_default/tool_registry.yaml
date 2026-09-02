@@ -1,0 +1,87 @@
+# =====================================================================
+# tool_registry.yaml · _default 兜底版（脱敏骨架）
+# ---------------------------------------------------------------------
+# 用途：破除「思维被 config/权威源映射 锚定」——本机真实存在、但配置未必
+#       列全的信息源都登记在这里。Step 2 必须逐条确认其可用性并写入《工具清单》。
+# 字段：kind = api(直接查询) / registry(工具仓库：先 discover 再 call) /
+#              http(官网接口) / agent(子Agent) / plugin
+# 用于：tool_inventory.py 校验「已知源是否都被盘点/探查过」。
+# 公开版：删除含 token / 凭证 / 内部账号的具体通道与本地脚本路径，仅保留公开 MCP / API 名。
+# =====================================================================
+
+版本: "1.0"
+
+信息源:
+  # --- 工具仓库/聚合（最关键：用途不可见，必须 discover 探查，勿因抽象命名跳过） ---
+  - name: tool_registry_aggregator
+    kind: registry
+    discover: mcp__<your_aggregator>__discover
+    call: mcp__<your_aggregator>__call
+    说明: "语义检索本机注册的远程工具；先 discover 免费盘点，再按量计费 call；可补任意字段的降级/交叉验证"
+
+  # --- 金融数据 API ---
+  - name: mx-ds-mcp (东方财富)
+    kind: api
+    tools: [mx_ashare_finance_data, mx_hk_finance_data, mx_finance_search_news, mx_finance_search_notice, mx_macro_data, mx_stocks_screener, mx_us_finance_data, mx_fund_finance_data]
+
+  - name: hexin-ifind-ds (同花顺iFinD)
+    kind: api
+    tools: [get_stock_summary, get_stock_financials, get_stock_performance, search_stocks, get_stock_info, get_stock_events, get_stock_shareholders, get_risk_indicators, get_esg_data, stock_highfreq_quotes, search_news, search_notice]
+
+  - name: wind_stock_data
+    kind: api
+    tools: [get_stock_basicinfo, get_stock_fundamentals, get_stock_events, get_stock_kline, get_stock_quote, get_risk_metrics, search_stocks]
+
+  - name: stock-sdk
+    kind: api
+    tools: [get_a_share_quotes, get_history_kline, get_fund_flow_rank, get_individual_fund_flow, get_today_timeline, get_zt_pool, get_chip_distribution, get_market_status, get_industry_list, get_concept_list, get_northbound_flow_summary]
+
+  - name: akshare
+    kind: api
+    tools: [get_hist_data, get_realtime_data, get_income_statement, get_balance_sheet, get_cash_flow, get_financial_metrics, get_news_data]
+
+  - name: tushare
+    kind: api
+    tools: [sdk_call, sdk_schema, sdk_search]
+
+  # --- 一级市场/企业数据 ---
+  - name: itjuzi (IT桔子)
+    kind: api
+    tools: [search_events, search_companies, search_investors, get_company_funding_events, aggregate_funding_by_tags]
+
+  - name: 一级市场数据 (烯牛或其他)
+    kind: api
+    tools: [get_data, get_table_columns, get_company_info, get_entity_profile, search_reports]
+
+  - name: 企查查(qcc)
+    kind: api
+    tools: [get_company_registration_info, get_company_profile, get_shareholder_info, get_actual_controller, get_beneficial_owners, get_financial_data, get_key_personnel, get_external_investments, get_listing_info, get_patent_info, get_trademark_info, get_qualifications]
+
+  - name: qcc-document
+    kind: api
+    tools: [parse_document, get_parse_result]
+
+  - name: qcc-tender
+    kind: api
+    tools: [search_tenders, search_company_tenders, search_proposed_projects, get_tender_detail]
+
+  # --- 官网/交易所（HTTP 直连，adapter 封装） ---
+  - name: 上交所/深交所/北交所/证监会/港交所披露易/巨潮
+    kind: http
+    tools: ["datasources/adapters.py: fetch_sse/fetch_szse/fetch_csrc/fetch_bse"]
+
+  # --- 检索/认证 ---
+  - name: 搜索
+    kind: api
+    tools: [web_search, web_fetch, tavily_search, mcp__tavily-search__tavily_search, mx_finance_search_news]
+
+  - name: agent 通道
+    kind: agent
+    tools: [subagent, subagent_fork, workflow, summon_expert]
+
+# 规则（tool_inventory.py 据此校验）
+规则:
+  必须盘点: "上述信息源逐条确认存在与否 + smoke 结果，写入 工具清单.jsonl"
+  聚合器必须探查: "kind=registry 的信息源，必须执行一次 discover/搜索并记录发现到的具体工具"
+  未测不得标ok: "smoke=未测 一律标 🟡，不得标 ✅"
+  配置外本机源: "agent 在 `tools/list` 中发现的、本文件未列出的 MCP server/工具，必须追加到清单并注明『本机有、注册表未列』"

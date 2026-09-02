@@ -33,7 +33,7 @@
 ## 主要输出
 
 - 新月报 .docx（结构保真 ≥95%）
-- `runs/<run-id>/`：变更摘要、溯源.jsonl、来源记录、下载资料、9+ 道门禁报告、运行日志
+- `runs/<run-id>/`：变更摘要、溯源.jsonl、来源记录、下载资料、11 道门禁报告、运行日志
 - 工作区归档：`<工作区>/<产品名>_产出/`（Step 9.5 强制收尾）
 
 ## 安装与执行
@@ -64,10 +64,10 @@ python scripts/pack.py activate medtech
 ## 三条铁律
 
 1. **数据流审计**：旧月报 = 结构模板 + 口径参考，**绝不沿用数值**。时点型按月重采完整枚举。
-2. **格式保真**：就地改写（`docx_utils.set_para_text_keep_fmt`），**禁止** `cell.text = value` / `Document()+add_paragraph+add_table` 从零重建。`format_diff` ≥95% 是硬门槛。
+2. **格式保真**：就地改写（`docx_utils.set_cell_keep` / `set_para_keep`），**禁止** `cell.text = value` / `Document()+add_paragraph+add_table` 从零重建。`format_diff` ≥95% 是硬门槛。
 3. **工具盘点先于标 ✅**：所有 MCP / HTTP 通道必须先 smoke test 实测一次，未实测只能标 🟡。
 
-## 门禁速查（9 道 + 2 道扩展 = 11 道）
+## 门禁速查（11 道）
 
 | # | 门禁 | 命令 |
 | --- | --- | --- |
@@ -85,9 +85,9 @@ python scripts/pack.py activate medtech
 
 ## Gotchas（必须看）
 
-完整 12 条避坑手册见 [`references/gotchas.md`](./references/gotchas.md)。其中 5 条高危：
+完整 20 条避坑手册见 [`references/gotchas.md`](./references/gotchas.md)。其中 5 条高危：
 - **禁止** `cell.text = value` / `p.text = value` 覆写 → 用 `docx_utils.set_cell_keep / set_para_keep`
-- **必须用 v2 函数族**：`set_cell_keep`、`fill_table`、`strip_vmerge`、`set_para_keep`、`add_row_copy_fmt`
+- **必须用 v2 函数族**：`set_cell_keep`、`fill_table`、`strip_vmerge`、`set_para_keep`、`add_row_copy_fmt`、`set_para_segments_keep_fmt`
 - 删除残句用**包含匹配**（`in`），**不用前缀匹配**（`startswith`）
 - 申万指数码禁用 `wind_stock_data.get_stock_kline`（801742.SL 被误解析为个股）
 - 工作区归档脚本 `archive_to_workspace.py` 不跑 = 未交付（即使门禁全过）
@@ -103,14 +103,14 @@ python scripts/pack.py activate medtech
 
 | 文档 | 用途 |
 | --- | --- |
-| `SKILL.md` | 主入口（铁律 + 10 步闭环 + 9 道门禁 + 纪律分级） |
+| `SKILL.md` | 主入口（铁律 + 10 步闭环 + 11 道门禁 + 纪律分级） |
 | `README.md` | 项目概览 |
-| `使用说明.md` | 中文使用说明（触发方式 + 输入输出 + 9 步详解） |
-| `修改示例.md` | 实战反推案例（匿名化版本） |
+| `使用说明.md` | 中文使用说明（触发方式 + 输入输出 + 10 步详解） |
+| `修改示例.md` | 通用反推案例（脱敏通用版） |
 | `docs/USAGE.md` | 详细使用 SOP（每月流程 + 故障排查 + 命令参考） |
-| `docs/EXAMPLES.md` | 8 个扩展示例（新增行业包 / 采集项 / 门禁 / 端点） |
+| `docs/EXAMPLES.md` | 8 个扩展示例 |
 | `references/discipline.md` | P0/P1/P2 三级纪律全文 |
-| `references/gotchas.md` | 12 条避坑手册 |
+| `references/gotchas.md` | 20 条避坑手册 |
 | `discovery.json` | 决策契约（marketplace 检索依据） |
 | `evals/industry-report-update.eval.md` | 评估 spec（门禁断言 + 评分） |
 | `packs/README.md` | 行业包机制说明 |
