@@ -1,20 +1,40 @@
 ---
-name: "industry-report-update-skill"
-description: "行业月报更新（开源版）：以用户提供的旧行业月报 docx 为模板，端到端生成最新一期月报。核心方法论＝数据流审计（先逆向反推每个结论的数据源/口径/时点，再重新采集、完整枚举、逐条溯源）＋格式保真（保留格式改写，非 cell.text 覆写）＋源文件归档（每表对应章节+具体来源、金额标财报期、多源交叉验证）＋工作区归档（全产出镜像到使用者当前对话工作区）。内置可执行门禁脚本（数字提取/空值diff/一致性/交叉一致性/合理性/格式diff/数值回读/溯源反查/跨月去重/锚点自检）与跨月复用配置（口径/采集/权威源/时点对齐/标的池/端点/工具注册表），支持断点续跑与运行契约。专题对比走独立子Skill（专题研究.skill）；子Agent通道失败由mainagent兜底。触发词：行业月报更新 / 月报更新 / 生成最新月报 / 更新月报 / generate monthly report."
-version: "1.0.0"
-author: "industry-report-update-skill authors"
-license: "Apache-2.0"
+name: "industry-report-update"
+description: "行业月报更新：以用户提供的旧行业月报为模板，端到端生成最新一期月报。核心方法论＝数据流审计（先逆向反推每个结论的数据源/口径/时点，再重新采集、完整枚举、逐条溯源）＋格式保真（保留格式地改写，非 cell.text 覆写）＋源文件归档（每表对应章节+具体来源源文件、金额标财报期、多源交叉验证）＋工作区归档（全产出镜像到使用者当前对话工作区）。内置可执行门禁脚本（数字提取/章节完整性/字段完整性/空值diff/一致性/交叉一致性/结构diff/合理性/格式diff/数值回读/溯源反查/配置校验）与跨月复用配置（口径/采集/权威源/时点对齐/标的池/端点），支持断点续跑与运行契约。专题对比走独立子Skill（专题研究.skill）；子Agent通道失败由mainagent兜底。触发词：行业月报更新 / 月报更新 / 生成最新月报 / 更新月报。"
+version: "3.1"
+author: deepseek-harness
 ---
-> 行业月报更新 SKILL（v1.0.0 · 开源版 · Apache-2.0）· 以旧月报为模板，端到端生成最新一期月报。
-> 本版（v1.0.0）：数据流审计 + 格式保真 + 工作区归档 + 11 道门禁；通用引擎 + 行业包（_默认兜底）；Apache-2.0 开源。
+> 行业月报更新 SKILL · 以旧月报为模板，端到端生成最新一期月报。
+> 本版（v3）：验证闭环 + **生成时血缘约束（数据点建模 + 否定式强溯源）** + 三道新门禁
+> （章节完整性 / 字段完整性 / 语义结构 diff），并把门禁重构为 P0 阻断 / P1 结构警告 / P2 记录三层。
+> v3 是对 2026-09 期「门禁假阳性可见、假阴性不可见」复盘后的系统性修复。
+> v3.1（2026-09）：新增 P0 #15「专题主题按月重选」——专题内容必须结合当月情况重新选定主题、交由使用者选择/决定、禁止沿用上月主题；并强化「C. 专题独立化」与「Step 4」中专题主题的确认义务。
 
 ## 三条铁律（本 Skill 的灵魂）
 
 1. **数据流审计**：旧月报是"结构模板 + 口径参考"，**绝不当数值来源**。每个承载数据的单元都按月重新采集、完整枚举、逐条溯源。
 2. **格式保真**：新月报格式与旧月报对齐 ≥95%，用"保留格式地改写"而非 `cell.text = value` 覆写。
-3. **工具盘点优先**：Step 2 的第一动作是盘点本机全部可用工具（以实时 tools/list 为准）并 smoke test，映射表写「具体工具名 + 实测结果」；**没实测过的工具一律标 🟡，不得标 ✅**。
+3. **工具盘点优先**：Step 2 的第一动作是**三层盘点**本机全部可用信息源——① function list 的 `mcp__*` 工具；② skill 本地脚本通道（call-node.js / cli.mjs）；③ harness 层 MCP 连接（`storages/mcp_connector.json`）。**先跑 `scripts/discover_channels.py` 自动穷尽②③**，再逐通道 smoke test。映射表写「具体工具名 + 实测结果」；**没实测过的工具一律标 🟡，不得标 ✅；没探测过的通道一律标 🟡，不得标 ❌**。
 
-**命令**：`/industry-report-update-skill` · 触发词：行业月报更新 / 月报更新 / 生成最新月报 / 更新月报 / generate monthly report
+**命令**：`/industry-report-update` · 触发词：行业月报更新 / 月报更新 / 生成最新月报 / 更新月报
+
+---
+
+## 生成时约束（v3 新增 · 比事后门禁更早拦截）
+
+> 11 道门禁全是「生成完之后」的事后校验，发现错误只能返工（改写成本是发现成本的十倍）。
+> v3 把关键约束前置到**生成时**，让错误在写入 docx 前就被类型系统拦住。
+
+1. **血缘数据点建模**：每个承载数据的单元先落成一个数据点，再写进 docx——
+   `{cell, value, unit, kind, source_file/url, source_row/source_field 锚点, 口径, 时点(as_of/reporting_period), 是否否定式(is_negative)}`。
+   生成器**只从血缘图取数，禁止写裸文本**（禁止 `cell.text="373家"` 这种无出处写入）。
+2. **否定式结论强溯源**：凡「无 / 本期无 / 没有 / 未 / 0 家」类结论，`kind=negative` 且必须带
+   `query_statement`（查询语句）+ `empty_result_evidence`（空结果证据）。
+   审计上「没写」无法区分「没查」还是「查了确实为 0」——否定式比普通数值**更高风险**，证据链要求更严。
+3. **键列按表头自动识别**：空值/字段校验的键列一律按**本表表头**自动识别（`_AUTO_KEY_NAMES`），
+   禁止给所有表传同一个固定键列名（会覆盖自动识别，退回「序号」对齐，制造假阳性）。
+4. **必填字段白名单**：行业动态/投融资表的新行必填字段（融资方/所在地区/法定代表人等）在
+   采集清单里声明，生成时逐格校验，缺失即阻断——而非等 field_completeness 门禁事后抓。
 
 ---
 
@@ -23,17 +43,16 @@ license: "Apache-2.0"
 | 资源 | 路径 | 用途 |
 | --- | --- | --- |
 | 行业包 | `packs/<行业名>/` | 赛道口径/标的池/权威源/专属纪律（当前激活内容在 config/，见 packs/README.md） |
-| 兜底行业包 | `packs/_default/` | 公开版唯一随包发布的通用骨架（无标的池，由 wizard 反推） |
 | 激活配置 | `config/*.yaml` | 口径字典/采集清单/权威源映射/时点对齐/标的池（跨月复用，每月只改截至日期） |
 | 端点配置 | `config/endpoints.yaml` | 通道探测目标（URL/方法/请求头），官网改接口只改这里 |
-| 已知源注册表 | `config/tool_registry.yaml` | Step 2 必须覆盖的本机已知信息源清单（含工具仓库类），破除思维锚定 |
 | 格式保真库 | `scripts/docx_utils.py` | 保留格式改写（多 run/多段/合并单元格） |
-| 数据源适配器 | `datasources/adapters.py` | 交易所/证监会反爬/分页/WAF 封装 + + health_check() |
+| 数据源适配器 | `datasources/adapters.py` | 交易所/证监会反爬/分页/WAF 封装 + health_check() |
 | 统一入口 | `scripts/run.py` | 一键跑全部门禁 + 断点续跑（--resume） |
-| 评估器 | `scripts/run_evals.py` | fixtures 正负双向冒烟 + 基线对比（防回归） |
-| 门禁脚本 | `scripts/audit/` | 数字提取/空值diff/一致性/交叉一致性/合理性/格式diff/数值回读/溯源反查/配置校验/跨月去重/锚点自检 |
+| 门禁脚本 | `scripts/audit/` | 数字提取/章节完整性/字段完整性/空值diff/一致性/交叉一致性/结构diff/合理性/格式diff/数值回读/溯源反查/配置校验（分 P0/P1/P2 三层） |
+| 章节完整性 | `scripts/audit/section_completeness.py` | **P0**：标题下必须有内容；「无/没有/未」否定式结论须带 is_negative 证据链 |
+| 字段完整性 | `scripts/audit/field_completeness.py` | **P0**：新行自身必填字段（融资方/所在地区/法定代表人等）非空，不依赖旧值 |
+| 语义结构 diff | `scripts/audit/structure_diff.py` | **P1**：标题树 + 表清单 old vs new，删章节/删表须在变更摘要交代 |
 | 通道自检 | `scripts/channel_health_check.py` | Step 0.5 硬性前置（HTTP 直探 + MCP 实测回写校验） |
-| 通道排序 | `scripts/channel_pick.py` | **P1-1**：通道实测 → 每采集项建议通道顺序（❌ 沉底） |
 | 口径快照 | `scripts/snapshot.py` | 落盘快照 + 叶子级深 diff（≥3 项暂停确认） |
 | 运行契约 | `scripts/manifest.py` | runs/<run-id>/manifest.json，子 Skill 只认它 |
 | 行业包管理 | `scripts/pack.py` | list / activate / wizard（新行业反推建包） |
@@ -42,11 +61,14 @@ license: "Apache-2.0"
 | 工作区探测 | `scripts/workspace.py` | 解析「当前对话工作区」路径（`--ws` > `--anchor`目录 > `DSH_WORKSPACE` > `DSH_SESSION_JSONL`解码 > cwd；`--anchor`=输入旧月报原始路径，open-source 通用） |
 | 工作区归档 | `scripts/archive_to_workspace.py` | **Step 9.5 强制**：把本 run 全产出（报告/变更摘要/专题/源文件/门禁报告/输入）镜像到当前对话工作区 `<工作区>/<产品名>_产出`；不依赖运行环境 |
 | 工具清单校验 | `scripts/tool_inventory.py` | **Step 2 机检**：校验 `工具清单.jsonl` 是否覆盖 `config/tool_registry.yaml` 全部已知源、聚合器是否 discover 过、未测是否未标✅（阻断级） |
+| 通道发现 | `scripts/discover_channels.py` | **Step 2 硬性前置**：三层自动发现本机全部信息源（harness 层 MCP 连接 + skill 本地脚本 + endpoints.yaml），杜绝「只看 function list 就判不可用」 |
+| 已知源注册表 | `config/tool_registry.yaml` | Step 2 必须覆盖的本机已知信息源清单（含 QVeris 等仓库类），破除思维锚定 |
 | 模板 | `templates/` | 确认清单/变更摘要/溯源schema/审计产出/工具清单/子任务（含盲审规范+自检清单） |
 | 构建引擎 | `scripts/build_report.py` + `scripts/docx_build.py` | **P2-1**：content/ 声明式构建（模板+内容→月报），原语库含全部保格式操作 |
-| 跨月去重 | `scripts/audit/cross_month_dedup.py` | **P1-2**：本期候选 vs 上月报告实体比对（门禁第 11 道） |
+| 通道选择 | `scripts/channel_pick.py` | **P1-1**：通道实测 → 每采集项建议通道顺序（❌ 沉底） |
+| 跨月去重 | `scripts/audit/cross_month_dedup.py` | **P1-2**：本期候选 vs 上月报告实体比对（门禁第 10 道） |
 | 锚点自检 | `scripts/audit/anchor_check.py` | **P0-2**：溯源锚点 dry-run（run.py 前置，规则见 docstring） |
-| 通用示例 | `修改示例.md` | 通用反推案例（脱敏通用版） |
+| 实战示例 | `修改示例.md` | 机器人月报 6月→7月复盘 |
 | 脚本说明 | `scripts/README.md` | 全部脚本用法 + 已知边界 |
 
 ---
@@ -56,10 +78,10 @@ license: "Apache-2.0"
 0. **数据流审计**——反推每个结论的数据源/口径/时点，区分时点型 vs 结构型（extract_numbers.py 提取雏形）。
 0.5. **通道健康度自检**——channel_health_check.py；MCP/agent 通道由 Agent 按 endpoints.yaml 的 smoke_hint 真调一次并回写 `通道实测.jsonl`。
 1. **理解构成 + 口径快照**——拆「章节→最小内容单元」+ 格式基准；manifest.py init **（必带 `--old-doc <输入旧月报原始路径>`，供 Step 9.5 归档自动锚定工作区）**；snapshot.py snapshot + diff（≥3 项暂停确认）。
-2. **映射信息获取途径**——两段式枚举：①tools/list 直连盘点 + smoke test；②**仓库/聚合类源（如 `mcp__<your_aggregator>__discover`）必须 discover 一次并记录子工具**；③覆盖 `config/tool_registry.yaml` 全部已知源；产出 `工具清单.jsonl` + 映射表，并跑 `tool_inventory.py` 机检（阻断级）。
+2. **映射信息获取途径**——三层枚举：**第零段先跑 `python scripts/discover_channels.py --out runs/<run-id>/sources/通道发现.jsonl` 穷尽 harness 层 MCP 连接 + skill 本地脚本**；①tools/list 直连盘点 + smoke test；②**仓库/聚合类源（如 `mcp__qveris__discover`）必须 discover 一次并记录子工具**；③覆盖 `config/tool_registry.yaml` 全部已知源 **+ 第零段发现的 harness 连接**；产出 `工具清单.jsonl` + 映射表，并跑 `tool_inventory.py` 机检（阻断级）。
 3. **能力提升分析**——汇总 ❌/🟡。
-4. **征询意见**——确认清单一次性问（必填 ≤5 条，支持「一键全采」，结果落盘）。
-5. **副本修改生成**——类型驱动处理（结构型复制/半结构型核变化/时点型重采）+ docx_utils 保格式改写（v2 函数族）+ checkpoint 断点 + 研究型任务子 Agent fan-out（**结果必须落盘** runs/<run-id>/sources/子任务-<名称>.md，见 P1-4）+ **采集前 channel_pick.py 通道排序、采集后 cross_month_dedup.py 跨月去重**（P1-1/P1-2）。**专题对比走 专题研究.skill，不硬塞**。
+4. **征询意见**——确认清单一次性问（必填 ≤5 条，支持「一键全采」，结果落盘）；**「专题主题」为固定必填项，须按月重选并经使用者选择/决定，禁止沿用上月**。
+5. **副本修改生成**——类型驱动处理（结构型复制/半结构型核变化/时点型重采）+ docx_utils 保格式改写（P0-1 函数族）+ checkpoint 断点 + 研究型任务子 Agent fan-out（**结果必须落盘** runs/<run-id>/sources/子任务-<名称>.md，见 P1-4）+ **采集前 channel_pick.py 通道排序、采集后 cross_month_dedup.py 跨月去重**（P1-1/P1-2）。**专题对比走 专题研究.skill，不硬塞**。
 6. **循环修正**——run.py 一键门禁（中断加 --resume），最多 3 轮。
 7. **来源归档 + 数值回读**——源文件「章节+具体来源」命名、溯源.jsonl 带锚点、verify_value 回读比对、traceability 反查、变更摘要（含异常波动说明）。
 8. **独立盲审**——子 Agent 盲审（只看新月报+源文件，严禁给溯源推理）；失败 ≥2 次降级 mainagent 并标注独立性受损；≥3 次暂停。
@@ -88,7 +110,7 @@ python scripts/channel_health_check.py --ym <YYYY-MM> --run-id <run-id>
 
 ### Step 1 · 理解构成 + 口径快照 + 运行契约
 ```bash
-python scripts/manifest.py init --ym <YYYY-MM> --run-id <run-id> --pack _default
+python scripts/manifest.py init --ym <YYYY-MM> --run-id <run-id> --pack robotics
 python scripts/snapshot.py snapshot --ym <YYYY-MM> --run-id <run-id>
 python scripts/snapshot.py diff --ym <YYYY-MM> --prev-ym <上月>
 python scripts/audit/config_check.py --out 配置校验报告.md
@@ -96,21 +118,26 @@ python scripts/audit/config_check.py --out 配置校验报告.md
 - snapshot 深 diff ≥3 项 → **暂停并请求用户确认**；
 - python-docx 拆段落/表格，记录完整格式基准（供 format_diff 对比）。
 
-### Step 2 · 映射信息获取途径（两段式枚举 + 机检，先盘点再映射）
+### Step 2 · 映射信息获取途径（三层枚举 + 机检，先盘点再映射）
 > 目的不是「记录用了哪些源」，而是**穷尽本机全部可用信息源，优中选优做主源，其余做交叉验证**。
 > **必须**产出两份 artifact 并写入 `runs/<run-id>/sources/`，缺一即视为 Step 2 未完成：
 > ① `工具清单.jsonl`（盘点结果，供 `scripts/tool_inventory.py` 机检）② 《信息获取途径映射表.docx》。
-1. **第一段：直连枚举**——tools/list 盘点本机全部工具（MCP/插件/Skill 分组），逐组 smoke test（真取一条样例）；✅=已实测 / 🟡=未测 / ❌=不可用。**未实测不得标 ✅。**
-2. **第二段：仓库/聚合器必查**——对**任何「工具仓库/聚合类」源（带 discover/search 的注册表、能聚合子工具的 server）必须执行一次 discover/搜索**，记录其暴露的具体工具（found_tools）；**不得因「名字抽象看不出用途/怕按量计费/配置里没写」而跳过**。
+0. **第零段：三层自动发现（硬性前置）**——先跑 `python scripts/discover_channels.py --out runs/<run-id>/sources/通道发现.jsonl`，穷尽本机全部信息源的存在形态：① function list 的 `mcp__*` 工具（Agent 直连）；② skill 本地脚本通道（call-node.js / cli.mjs）；③ harness 层 MCP 连接（`storages/mcp_connector.json → tables.connections`）。**本清单只发现通道存在性，不带可用性结论**——可用性必须经 smoke test 实测后才标 ✅/❌。这是 2026-09 期「三连误判金融工具不可用」的根因修复。
+1. **第一段：直连枚举**——tools/list 盘点本机全部工具（MCP/插件/Skill 分组），逐组 smoke test（真取一条样例）；✅=已实测 / 🟡=未测 / ❌=不可用（须附实测失败证据）。**未实测不得标 ✅；未探测不得标 ❌。**
+2. **第二段：仓库/聚合器必查**——对**任何「工具仓库/聚合类」源（`mcp__qveris__discover`、带 discover/search 的注册表、能聚合子工具的 server）必须执行一次 discover/搜索**，记录其暴露的具体工具（found_tools）；**不得因「名字抽象看不出用途/怕按量计费/配置里没写」而跳过**。（这正是本次 QVeris 被漏的根因。）
 3. **对照注册表覆盖**——逐条列出 `config/tool_registry.yaml` 的已知信息源在普查中的结论（存在/未装/不可用），发现"本机有、注册表未列"的源必须补记。
 4. **跑机检**：`python scripts/tool_inventory.py --inventory runs/<run-id>/sources/工具清单.jsonl` → 阻断（缺聚合器探查/已知源未盘点/未测标✅）则返工。
-5. 逐最小内容单元写：具体工具名（禁止抽象标签）+ 覆盖度 + 2-3 级降级链 → 《信息获取途径映射表.docx》。主源用已实测(✅)且权威的；测试过但非主用的作交叉验证。
+5. 逐最小内容单元写：具体工具名（禁止"iFinD"这类抽象标签）+ 覆盖度 + 2-3 级降级链 → 《信息获取途径映射表.docx》。主源用已实测(✅)且权威的；测试过但非主用的作交叉验证。
 > ⚠️ config 的「采集通道」只是权威源参考，**不是**本机工具全集；本机存在即应进清单并实测。成本分层：discover/盘点免费，真正取数的 call 才按量计费——不要因怕花钱跳过盘点。
 
 ### Step 4 · 征询意见（一次性结构化确认）
 用 `templates/确认清单模板.md`：必填 ≤5 条（超出转建议项），每项给默认值+反推依据；
 用户可逐项批注或「一键全采」；确认结果落盘 `runs/<run-id>/input/用户确认.md`。
 「≥95% 把握」= 所有必填项已获明确答复。
+**「专题主题」是 Step 4 的固定必填项**：必须结合当月 IPO 申报/审核/上市最新变化重新提出候选主题
+（至少 1 个推荐 + 1-2 个备选，附反推依据），交由使用者选择或决定，**禁止沿用上月主题**。
+专题主题**无默认值**，故不适用「一键全采」——「一键全采」只豁免「有默认值的项目是否采纳」，
+**不豁免「专题主题必须经使用者明确选择/决定」**；主题未获答复即不得进入 Step 5。
 
 ### Step 5 · 副本修改生成（保格式改写 + 断点续跑）
 1. 复制副本；先跑 `datasources/adapters.py` 的 health_check() 与 `python scripts/channel_pick.py --run-id <run-id>`（P1-1：按本期通道实测排序每项的通道顺序，❌ 沉底），按采集清单「类型」处理：
@@ -118,9 +145,9 @@ python scripts/audit/config_check.py --out 配置校验报告.md
 2. **断点**：每完成一个采集项 `checkpoint.record(item_id,'done',...)`；中断后 `checkpoint.resume(清单)` 续跑。
 3. 研究型单元按 `templates/subagent任务模板.md` fan-out，主 Agent 验真回接。
 4. 改写优先用声明式引擎 `python scripts/build_report.py --template 旧月报.docx --content runs/<run-id>/content --out 新月报.docx`（P2-1/P2-2，content/ 约定见 templates/content-schema-example.json；行业特有逻辑写 content/hooks.py）。手写脚本时用 docx_utils（**禁止** `cell.text=`/`p.text=`/`add_paragraph` 覆写；
-   **必须使用 v2 保留结构函数族**——旧 API 只改首段/重建 run，是「旧值残留」「格式回归」两类门禁失败的根因）：
+   **必须使用 v2 保留结构函数族**——旧 API 只改首段/重建 run，是「旧值残留」「格式回归」两类门禁失败的根因，2026-09 实测修复）：
 ```python
-from docx_utils import set_cell_keep, fill_table, strip_vmerge, set_para_keep, add_row_copy_fmt, set_para_segments_keep_fmt
+from docx_utils import set_cell_keep, fill_table, strip_vmerge, set_para_keep, add_row_copy_fmt
 set_cell_keep(cell, value)                # 单元格写入：保留全部段落与 run 结构；list 值按段落 1:1 分配
 fill_table(table, rows, start_row=1)      # 表格回填：自动删多余数据行/克隆补足行，再逐格 set_cell_keep
 strip_vmerge(table)                       # 重填前清除 vMerge 残留（防序号跳号/事件-标的错配）
@@ -134,14 +161,20 @@ set_para_segments_keep_fmt(p, [(...), ])  # 仅用于需要多格式 run 的标�
 6. 无法获取标注「本期无法获取 / —」；docx 被占用先写 .tmp.docx；删除章节跳过 `<w:sectPr>`。
 
 ### Step 6 · 循环修正（run.py 一键，最多 3 轮）
+> **流程前置门禁（P0 #15）**：`run.py` 在跑数据门禁前会机器校验软性流程步骤是否落盘——
+> Step 1 口径快照（`config/口径快照/<YYYY-MM>.yaml`）、Step 4 征询意见（`input/用户确认.md`），
+> 缺任一 → 直接 exit 1，**拒绝出「全部通过」**。这是防「门禁全绿但步骤漏做」的硬拦截，
+> 不得用「默认值已对」「门禁都过了」为由跳过 Step 1/4。
 ```bash
 # 先跑锚点自检（dry-run，把 verify_value/traceability 的锚点错误前置为一次本地检查）：
 python scripts/audit/anchor_check.py runs/<run-id>/sources/溯源.jsonl \
     --base-dir runs/<run-id>/sources/anchors --out runs/<run-id>/logs/锚点自检.md
-python scripts/run.py 旧月报.docx 新月报.docx --key-col-name 公司简称 \
+python scripts/run.py 旧月报.docx 新月报.docx \
     --jsonl 溯源.jsonl --roster-note 变更摘要.md --out-dir runs/<run-id>/logs
+# 键列默认留空=按表头自动识别业务键（勿传固定「公司简称」，会覆盖自动识别退回序号对齐）；
+# 仅当某表表头无业务键列时才显式 --key-col-name。
 # 中断后续跑（跳过已通过门禁）：
-python scripts/run.py 旧月报.docx 新月报.docx --key-col-name 公司简称 \
+python scripts/run.py 旧月报.docx 新月报.docx \
     --jsonl 溯源.jsonl --roster-note 变更摘要.md --out-dir runs/<run-id>/logs --resume
 ```
 第 3 轮仍磨不平的差距（如 TOC 需 F9）逐条如实报告。
@@ -150,13 +183,15 @@ python scripts/run.py 旧月报.docx 新月报.docx --key-col-name 公司简称 
 - 源文件命名「章节+具体来源」；金额标财报期；正文表格加脚注「财务数据为各公司最近披露财报期，详见源文件」；
 - `溯源.jsonl` 按 templates/溯源.schema.json：**数值类必须带锚点**（source_key+source_field 或 source_row+source_field），
   网页来源另存快照（snapshot 字段）；出处为 source_file 或 url 二选一；
+- **否定式结论（无/0家）必须 `kind=negative` 或 `is_negative=true`，且带 `query_statement` + `empty_result_evidence`**，
+  供 section_completeness.py 校验「没查」vs「查了确实为 0」——照抄旧报告「无」而没重查是硬伤；
 - **锚点约定**（详读 `scripts/audit/anchor_check.py` docstring，run.py 前必跑该自检）：
   锚点文件一律用 **CSV 文本**（首行表头；"xls" 实为 CSV 的可直接用）；source_key 在键列按
   「半角化/去括号/去公司后缀」匹配，键列默认首列、可用 `source_key_col` 指列名；
   source_field 为取值列名；数值比对取 value **首个数字**（勿在 value 前缀段混入无关数字/单位，
   万元/亿元/% 混用会判单位不一致）；url-only 记录不参与回读但认可为出处；
 - `build_traceability.py` 半自动生成（自动锚定键列）→ Agent 补 status/cross_checked；
-- **verify_value.py 回读比对**（月报数字≠源文件数字 = 硬伤；量级差 10/100/100/10000 倍报单位疑似不一致）；
+- **verify_value.py 回读比对**（月报数字≠源文件数字 = 硬伤；量级差 10/100/10000 倍报单位疑似不一致）；
 - traceability_check.py 反查（覆盖率 + 交叉验证强制）；conflict_classify.py 冲突分级；
 - 《变更摘要.md》必须含「异常波动说明」——环比 ±50% 以上与新增/移除标的逐条点名（reasonableness 门禁回查）。
 
@@ -204,27 +239,59 @@ python scripts/archive_to_workspace.py --run-id <run-id> --product "<产品名>"
 - 根：新月报 .docx、变更摘要.md、专题*.md
 - `输入/`：旧月报、用户确认等
 - `源文件/`：交易所 CSV、溯源.jsonl、通道实测.jsonl、采集记录*.md（并自动并入 skill 基目录 `下载资料/` 的源文件）
-- `门禁报告/`：格式对比/一致性/交叉一致性/空值对比/溯源反查/配置校验/运行日志/通道降级日志/通道健康度
+- `门禁报告/`：章节完整性/字段完整性/格式对比/结构对比/一致性/交叉一致性/空值对比/合理性/数值回读/溯源反查/配置校验/去重/运行日志/通道降级日志/通道健康度
 
 > 工作区识别优先级：`--ws` > `--anchor` 目录 > `DSH_WORKSPACE` > `DSH_SESSION_JSONL` 解码 > 当前工作目录。脚本会**拒绝**把产出写到 skill 基目录内；一旦解析结果异常（如退化为基目录）即报错提示补传，绝不静默写错位置。
 
+### Step 9.6 · 交付前强制自检（P0 #15 落地）
+> **为什么要有这一步**：`run.py` 只查数据/格式，查不出「流程步骤漏做」。2026-09 期实测
+> 「12 道门禁全绿，但 Step 4 征询 / Step 8 盲审被跳过」，靠用户追问才补。故交付前必须跑
+> `run.py --release`（在数据门禁之外，机器校验 Step 8 盲审意见已落盘），并逐条过下方自检清单。
+```bash
+# 最终交付门禁：数据门禁 + Step 8 独立盲审意见存在性，缺一 exit 1
+python scripts/run.py 旧月报.docx 新月报.docx \
+    --jsonl 溯源.jsonl --roster-note 变更摘要.md --out-dir runs/<run-id>/logs --release
+```
+**交付前自检清单（逐条确认，任一项未完成即不得声称「完成」）：**
+1. Step 0.5 通道健康度已落盘 `通道实测.jsonl`；
+2. Step 1 口径快照已落盘且 diff 无未确认漂移；
+3. Step 2 工具清单机检（tool_inventory）通过；
+4. Step 4 用户确认已落盘 `input/用户确认.md`（专题主题经使用者选择）；
+5. Step 6 数据门禁全部通过（含 `--release`）；
+6. Step 8 独立盲审已做且无阻断级问题（复审须换新审核 Agent）；
+7. Step 9.5 已 `archive_to_workspace.py` 归档到当前工作区。
+
+**危险信号——出现任一条即立即停下返工，不得交付：**
+- 「门禁全绿了，应该可以交付了」——门禁全绿 ≠ 流程完整，必须先过自检清单。
+- 「默认值已经对了，不用问用户了」——Step 4 征询意见不可跳过，专题主题必须经使用者选择。
+- 「盲审和自动化门禁查的差不多，跳过也行」——盲审查的是跨月重复/双重计入/正负号/口径矛盾，自动化门禁查不出。
+- 「顺手多拷一份到工作区根目录」——产出只允许落在 `<工作区>/<产品名>_产出/`，不得在 SKILL 交付结构外擅自增删文件。
+
+> **门禁的诚实边界**：`run.py` 流程前置门禁只做「结构化标记」校验（确认文件存在 + 含「专题主题」关键词 + 盲审意见含结论标记），**不做语义判真**——「专题是否真按月重选、确认是否真经使用者选择」这类意图属性原理上无法由机器判定，只能靠独立盲审 + 人工抽查把关。门禁防的是「漏做」，防不了「伪造」；两者都不能替代人。
+
 ---
 
-## 门禁速查（11 道）
+## 门禁速查（13 道 · P0 阻断为主，数字提取为 P2 记录）
 
-| # | 门禁 | 命令 | 拦截条件 |
-| --- | --- | --- | --- |
-| 1 | 数字提取 | `extract_numbers.py 旧.docx` | 无（产出清单） |
-| 2 | 配置校验 | `config_check.py` | 采集项缺字段/通道名未定义 |
-| 3 | 空值 diff | `diff_empty.py 旧.docx 新.docx --key-col-name 公司简称` | 旧有值→新空值>0（业务键对齐） |
-| 4 | 一致性 | `consistency_check.py 新.docx` | 合计≠分项和（硬） |
-| 5 | 交叉一致性 | `cross_consistency_check.py 新.docx` | 正文「共N家」≠表格行数（硬） |
-| 6 | 合理性 | `reasonableness_check.py 旧.docx 新.docx --roster-note 变更摘要.md` | 环比±50%未说明 / 新增移除未点名（硬） |
-| 7 | 格式对比 | `format_diff.py 旧.docx 新.docx --threshold 0.95` | 相似度<95%（结构变化不计） |
-| 8 | 数值回读 | `verify_value.py 溯源.jsonl` | 月报数字≠源文件回读值 / 锚点失效（硬） |
-| 9 | 溯源反查 | `traceability_check.py 溯源.jsonl --min-coverage 0.9 --require-cross-check --against-docx 新.docx` | 无出处/源文件缺失/覆盖率(登记溯源行)<90%/未交叉验证；真实覆盖率(vs docx 数据单元)为报告性指标，不做100%硬性拦截 |
-| 10 | 锚点自检 | `audit/anchor_check.py 溯源.jsonl` | 锚点 dry-run 失败（run.py 前置） |
-| 11 | 跨月去重 | `cross_month_dedup.py --old 旧月报.docx --candidates 候选.csv` | 候选名命中上月实体（全名/子串）且未逐条处置（硬） |
+> 分层原则（v3）：**生成时约束 > 事后门禁**；P0 阻断发布、P2 只记录。
+> 结构 diff 为**条件阻断**：删章节/删表且未在《变更摘要》交代 → 硬拦截（P0）；无结构变化则仅报告。
+> 序号对齐是 2026-09 期空值误报的根因——空值/字段校验键列**一律按表头自动识别，禁用固定「序号」**。
+
+| 层 | # | 门禁 | 命令 | 拦截条件 |
+| --- | --- | --- | --- | --- |
+| P2 | 1 | 数字提取 | `extract_numbers.py 旧.docx` | 无（产出清单） |
+| P0 | 2 | 配置校验 | `config_check.py` | 采集项缺字段/通道名未定义 |
+| P0 | 3 | 章节完整性 | `section_completeness.py 新.docx [--jsonl 溯源.jsonl]` | 标题下无内容 / 否定式结论无证据（硬） |
+| P0 | 4 | 字段完整性 | `field_completeness.py 新.docx` | 新行必填字段（融资方/所在地区/法定代表人等）为空（硬） |
+| P0 | 5 | 空值 diff | `diff_empty.py 旧.docx 新.docx [--key-col-name 业务键]` | 同业务键旧有值→新空值>0（键列留空=按表头自动识别） |
+| P0 | 6 | 一致性 | `consistency_check.py 新.docx` | 合计≠分项和（硬） |
+| P0 | 7 | 交叉一致性 | `cross_consistency_check.py 新.docx` | 正文「共N家」≠表格行数（硬） |
+| P0 | 8 | 结构 diff | `structure_diff.py 旧.docx 新.docx [--roster-note 变更摘要.md]` | 删章节/删表且未在变更摘要交代（含「结构/专题/删除」关键词）→ 硬拦截；无结构变化仅报告 |
+| P0 | 9 | 合理性 | `reasonableness_check.py 旧.docx 新.docx --roster-note 变更摘要.md` | 环比±50%未说明 / 新增移除/结构变化未点名（硬） |
+| P0 | 10 | 格式对比 | `format_diff.py 旧.docx 新.docx --threshold 0.95` | 格式属性相似度<95%（铁律#2；语义结构变化由 structure_diff 覆盖，本门禁只保样式） |
+| P0 | 11 | 数值回读 | `verify_value.py 溯源.jsonl` | 月报数字≠源文件回读值 / 锚点失效（硬） |
+| P0 | 12 | 溯源反查 | `traceability_check.py 溯源.jsonl --min-coverage 0.9 --require-cross-check --against-docx 新.docx` | 无出处/覆盖率(登记溯源行)<90%/未交叉验证/否定式无证据；真实覆盖率(vs docx 数据单元)为报告性指标，不做100%硬性拦截 |
+| P0 | 13 | 跨月去重 | `cross_month_dedup.py --old 旧月报.docx --candidates 候选.csv` | 候选名命中上月实体（全名/子串）且未逐条处置（硬） |
 
 > 一键：`scripts/run.py`（含断点续跑 --resume、单项重跑 --only、逐门禁计时）。前置：`anchor_check.py` 锚点自检 dry-run。资源文件不可用时用本文件内联规则，不阻断任务。
 
@@ -236,15 +303,19 @@ python scripts/archive_to_workspace.py --run-id <run-id> --product "<产品名>"
 
 1. **禁止编造**：拿不到就标「本期无法获取 / —」；专题未取得招股书填「未取得招股书」。
 2. **重新采集不沿用**：时点型数据按月重采完整枚举。
-3. **工具实测先于标 ✅**：未 smoke test 的工具不得标 ✅；映射表写具体工具名。
+3. **工具实测先于标 ✅ / 未探测不得标 ❌**：未 smoke test 的工具不得标 ✅；未探测过的通道不得标 ❌（只能 🟡）；标 ❌ 必须附「实测探测命令 + 原始返回」证据。映射表写具体工具名。
 4. **来源逐条标注**：正文「来源：机构+日期」，表格「数据来源+截至」；溯源.jsonl 数值类带锚点。
 5. **数值回读通过**：verify_value 无 ❌（月报数字 = 源文件数字）。
 6. **名单/异常有交代**：环比异常与新增/移除标的在变更摘要逐条点名（reasonableness 无 ❌）。
 7. **盲审通过**：独立盲审无阻断级问题；复审必须换新审核 Agent。
 8. **格式对齐 ≥95%**：format_diff 评分达标（结构变化不计）。
-9. **空值必补**：diff_empty 抓「旧有值→新空值」，非空则必补（业务键对齐，禁用序号）。
-10. **口径漂移暂停**：snapshot 深 diff ≥3 项必须暂停并请求用户确认。
-11. **产出必达工作区**：Step 9.5 必须执行 `archive_to_workspace.py`，全产出须出现在使用者**当前对话工作区**（不得只留在 skill 基目录 run 内）——违反即视为未交付。
+9. **空值必补**：diff_empty 抓「旧有值→新空值」，非空则必补（键列按表头自动识别业务键，**禁用序号对齐**）。
+10. **章节必有内容**：section_completeness 无空章节；「无/没有/未」否定式结论必须带 `is_negative` + `query_statement` + `empty_result_evidence` 证据链。
+11. **新行字段完整**：field_completeness 无必填字段缺失（融资方/所在地区/法定代表人等，**只查新行自身**，与 diff_empty 互补）。
+12. **血缘数据点**：每个承载数据的单元先落数据点（锚点/口径/时点/是否否定式），生成器只从血缘取数、**禁止裸文本写入**。
+13. **口径漂移暂停**：snapshot 深 diff ≥3 项必须暂停并请求用户确认。
+14. **产出必达工作区**：Step 9.5 必须执行 `archive_to_workspace.py`，全产出须出现在使用者**当前对话工作区**（不得只留在 skill 基目录 run 内）——违反即视为未交付。
+15. **专题主题按月重选**：专题类内容必须结合当月情况重新选定主题，交由使用者选择或决定，**禁止沿用上月主题**——即使上月专题对象仍处同一状态、业务模式仍同构、上月结论仍「看似有效」，也不得默认沿用。未获使用者明确选择/决定，不得进入 Step 5（详见「C. 专题独立化」）。
 
 ### P1 · 警告级（须如实记录并可追溯，不阻断交付）
 
@@ -253,13 +324,13 @@ python scripts/archive_to_workspace.py --run-id <run-id> --product "<产品名>"
 3. 时点统一：按 时点对齐策略.yaml 对齐各来源时点，首页脚注写明采集日+目标时点。
 4. 财报期双轨：源文件标期 + 正文表格脚注。
 5. 差距如实报告：TOC 需 F9、图表未更新、数据源无接口、子Agent 失败等明确告知。
-7. 通道降级全月报可追溯：正文「数据来源」段显式引用本期实际生效通道与降级链。
+6. 通道降级全月报可追溯：正文「数据来源」段显式引用本期实际生效通道与降级链。
 7. 每表对应「章节+具体来源」源文件；交叉验证标注冲突+采用源+理由。
 8. 归档完整：runs/<run-id>/ 六件套 + 运行日志 + 通道降级日志 + metrics 记录。
 
 ### P2 · 行业包级（见 packs/<行业名>/RULES.md）
 
-公开版只附带 `_default` 兜底包。具体赛道的特殊纪律（如港股 6 个月有效期剔除、美股 S-1 分类）由用户用 `python scripts/pack.py wizard 旧月报.docx --name <新行业>` 反推后写入 ` `packs/<新行业>/RULES.md`。
+机器人包示例：港股 6 个月有效期剔除、美股 S-1/SPAC 分类、卖方一致预期独立小表等。
 **换行业只换包，不改本文件。**
 
 ---
@@ -271,13 +342,18 @@ python scripts/archive_to_workspace.py --run-id <run-id> --product "<产品名>"
 `通道实测.jsonl`；历史入 `state/渠道历史.jsonl`，连续 2 期 ❌ 触发续费/改接口提示。
 
 ### B. 口径快照与版本治理（Step 1）
-5 个 YAML 加 version 字段；snapshot.py 落盘 `config/口径快照/<YYYYMM>.yaml` 并做叶子级深 diff；
+5 个 YAML 加 version 字段；snapshot.py 落盘 `config/口径快照/<YYYY-MM>.yaml` 并做叶子级深 diff；
 月报首页脚注写「按口径字典 vX.Y、采集清单 vX.Y（采集日/目标时点）」；
 禁止裸改 YAML——新增版本号 + 备份旧版 + 变更摘要列差异。
 
 ### C. 专题独立化（强制）
+**专题主题必须结合当月情况重新选定，交由使用者选择或决定，禁止沿用上月主题。**
+即使上月专题对象仍处同一状态（如仍在审/过会）、业务模式仍同构、上月结论仍「看似有效」，
+也**不得默认沿用**——必须按月重新评估当月 IPO 申报/审核/上市的最新变化，向使用者提出候选主题
+（至少 1 个推荐 + 1-2 个备选，附反推依据），由使用者明确选择或决定后才能进入 Step 5。
+未获使用者确认前，专题章节只能以占位符 `详见专题报告-<对比对象>-<YYYYMM>` 呈现，禁止填充上月内容。
 专题对比走 `专题研究.skill/SKILL.md`，前置状态从 `runs/<run-id>/manifest.json` 读取（P1-7 契约）；
-大月报只引用专题结论与关键数字，占位符 `详见专题报告-<对比对象>-<YYYYMM>`；
+大月报只引用专题结论与关键数字；
 招股书 PDF 落盘 下载资料/，用 qcc-document 解析回填；PDF 不可获取填「未取得招股书」。
 
 ### D. 盲审与兜底（Step 8）
@@ -308,18 +384,24 @@ runs/<YYYY-MM-XXXXXX>/
 
 > 只收录「与合理假设相悖、且已在本 Skill 执行中实测」的环境事实。新事实随期追加，注明首遇期。
 
-- 上交所官网导出的 ".xls"（SH_XM_LB/GP_ZRZ_XMLB/GP_BGCZ_XMLB）实为 **UTF-8 CSV 文本**，用 `pd.read_csv(path)`（逗号分隔）读，勿用 read_excel。
-- 深交所 `projectrends/query` 的 `start` 分页参数失效、`pageSize` 上限 100（连续 2 期实测）——全量枚举改「top100 + 公告逐家核验」，勿反复尝试分页。
+- 上交所官网导出的 ".xls"（SH_XM_LB/GP_ZRZ_XMLB/GP_BGCZ_XMLB）实为 **UTF-8 CSV 文本**，用 `pd.read_csv(path)`（逗号分隔）读，勿用 read_excel（2026-08 期）。
+- 深交所 `projectrends/query` 的 `start` 分页参数失效、`pageSize` 上限 100（连续 2 期实测）——全量枚举改「top100 + 公告逐家核验」，勿反复尝试分页（2026-07/08 期）。
 - 北交所 bse.cn WAF 常态化 ConnectionResetError 10054——直接走公告/媒体核验，勿重试直连（连续 2 期）。
-- **申万指数码禁用 wind_stock_data.get_stock_kline**：801742.SL 被误解析为个股（返回 7-9 元股价）；申万二级/一级指数一律用 mx_index_block_finance_data。
-- 东财「区间涨跌幅（月初首个交易日至月末）」口径与历史月报的指数/个股数值完全对齐——月度涨跌幅统一用此口径。
-- 申万国防军工成分 = 航空装备Ⅱ（46 只）∪ 航天装备Ⅱ（9 只）；军工电子/兵器/船舶不在池内。
-- qcc 必须用工商全称；简称先 `get_company_by_query` 消歧并展示候选；积分中途耗尽→已采字段降级标注，勿整体放弃。
-- 行业月度合集会把上月事件转载进本月——一级市场/并购事件必须做跨月去重（对照上月报告，公告日 ≠ 转载日）。
-- tushare `index_dailybasic` 需积分权限；申万指数 PE 十年分分位用东财「年末 PE 序列」近似并在正文注明口径。
-- docx 保格式写入必须用 v2 函数族；删除残句/残留段用**包含匹配**；表格重填后必须核「行数=预期、无上月残行」。
+- **申万指数码禁用 wind_stock_data.get_stock_kline**：801742.SL 被误解析为个股（返回 7-9 元股价）；申万二级/一级指数一律用 mx_index_block_finance_data（2026-08 期）。
+- 东财「区间涨跌幅（月初首个交易日至月末）」口径与历史月报的指数/个股数值完全对齐（个股榜 55 只池已逐项复现验证）——月度涨跌幅统一用此口径（2026-08 期）。
+- 申万国防军工成分 = 航空装备Ⅱ（46 只）∪ 航天装备Ⅱ（9 只），该 55 只池可完整复现历史个股涨跌榜；军工电子/兵器/船舶不在池内（2026-08 期审计确认）。
+- qcc 必须用工商全称；简称先 `get_company_by_query` 消歧并展示候选；积分中途耗尽→已采字段降级标注，勿整体放弃（2026-08 期）。
+- 空天界等行业月度合集会把上月事件转载进本月——一级市场/并购事件必须做跨月去重（对照上月报告，公告日≠转载日）（2026-08 期，北斗星通案例）。
+- tushare `index_dailybasic` 需积分权限（40203）；申万指数 PE 十年分位用东财「年末 PE 序列」近似并在正文注明口径（2026-08 期）。
+- docx 保格式写入必须用 P0-1 函数族；删除残句/残留段用**包含匹配**；表格重填后必须核「行数=预期、无上月残行」（2026-08 期）。
 - PowerShell 下写中文脚本一律用脚本文件，勿用 `python -c` 内联（引号/编码搅碎）；console 打印中文先 `io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")`。
-- PowerShell 5.1 + zh-CN 区域下 `Set-Content` 默认 ANSI/GBK——会破坏 UTF-8 多字节序列（部分字节被替换为 `0x3F`）。写中文文件必须显式 `-Encoding UTF8` 或用 `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))`。
+- **金融数据 MCP 有「三种存在形态」，只查 function list 会三连误判不可用**（2026-09 实测 iFinD/Wind/qcc 全被误判）：① function list 的 `mcp__*` 工具；② skill 本地脚本通道（ifind-finance-data/call-node.js、wind-mcp-skill/cli.mjs）；③ harness 层 `storages/mcp_connector.json → tables.connections`（本机 48 个连接里 qcc 11 个、itjuzi/烯牛/东方财富/QVeris 全 connected）。Step 2 先跑 `scripts/discover_channels.py` 穷尽②③再判可用性。
+- **「不可用」判定要有证据门槛**：标 ❌ 必须附「实测探测命令 + 原始返回」；未探测只能 🟡。把「没看到」当「没有」是 2026-09 期三连误判的根因。
+- **MCP streamable-http 的 tools/list 返回是 SSE**（`event: message\ndata: {...}`），不是纯 JSON；按 JSON 解析会误得「0 工具」——先打印原始响应再解析（2026-09 期 qcc 实测）。
+- 脚本调用一律显式传绝对路径（`--runs-root`/`workdir`），勿依赖 CWD（2026-09 期 manifest 写错到工作区的根因）。
+- **run.py 不得给所有表传同一个 `--key-col-name`**（如固定「公司简称」）——它会覆盖 diff_empty 的 `_AUTO_KEY_NAMES` 按表头自动识别，行业动态表（键列=标的公司名称）匹配不到「公司简称」就退回「序号」对齐，制造整批假阳性（2026-09 期空值 20 处误报的根因）。
+- **空值 diff 抓不到「新行自身漏填」**：事件/融资类表整批换血后，序号/业务键对齐只报「旧有值→新空值」，新行字段缺失（如 6 家投融资公司「所在地区」漏填「—」、1 家中国公司「法定代表人」真空）必须由 field_completeness.py 抓（2026-09 期 7 处真缺口被误判为「合理误报」）。
+- **「无 XXX」是否定式结论，不是模板文本**：旧月报的「本期无再融资发行」等必须按月重查并留证据链，而非照抄；且「（2）美股IPO发行情况」这类标题下被清空成「只有目录没内容」，必须由 section_completeness.py 抓（2026-09 期复盘新增）。
 
 ## 已知边界（如实声明，不伪装）
 
@@ -327,6 +409,10 @@ runs/<YYYY-MM-XXXXXX>/
 2. 原生 OOXML 图表无法重算（双轨制兜底）；跨行 vMerge 复杂表需人工复核。
 3. TOC 页码域需在 Word/WPS 按 F9 刷新。
 4. 门禁查「自洽 + 回读一致」，无法发现源文件本身的错误——权威源选择仍靠 Step 2 映射纪律。
-5. diff_empty/verify_value 的键归一化是启发式（去括号/去公司后缀），极端同名异写需人工复核。
+9. diff_empty/verify_value 的键归一化是启发式（去括号/去公司后缀），极端同名异写需人工复核。
 6. build_report.py 声明式引擎覆盖本期验证过的 op 集合（replace_range/fill_table/note_after_table/replace_image 等）；超出集合的结构操作走 exec_python 钩子或手写脚本（docx_build.py 原语库兜底）。
 7. cross_month_dedup 只做名字级命中（全名/子串）；转载合集若改写公司名仍可能漏网——终审以盲审自检清单第 1 条为准。
+8. field_completeness 的「法定代表人豁免」「必填字段」是启发式（事件分类关键词 + 城市 + 组织名）；行业特有必填字段应写进 packs/<行业>/RULES.md 覆盖默认规则。
+9. section_completeness 判定「空章节」依赖 Heading 样式名（Heading/标题）；模板用非标准样式时需人工确认，或扩展样式匹配。否定式结论只扫正文段落，不扫表格单元格内的「—/无」。
+10. structure_diff 只比标题树+表清单，不比表内结构；结构增删须经 --roster-note 在变更摘要交代（含「结构/专题/删除」关键词），否则硬拦截。
+11. field_completeness 假定已 strip_vmerge（生成端 Step 5 强制）；若输入残留 vMerge 续行（cell.text 为空），会误报「必填缺失」——属生成端问题，审计端不豁免。
