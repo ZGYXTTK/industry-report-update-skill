@@ -1,5 +1,5 @@
 # industry-report-update-skill · runtime dependencies (Apache-2.0)
-# 本 Skill 公开版（v1.0.0）依赖清单
+# 本 Skill 开源版（v3.1）依赖清单
 # 安装：pip install -r requirements.txt
 
 # === 必装（核心功能） ===

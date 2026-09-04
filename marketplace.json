@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Industry monthly report renewal Skill (open-source)",
-    "version": "1.0.0"
+    "version": "3.1.0"
   },
   "plugins": [
     {
       "name": "industry-report-update-skill",
       "source": "./",
-      "description": "端到端生成最新一期行业月报：以上一期 docx 为模具，按月重采数据、9+ 道门禁校验、强制镜像到工作区。通用引擎 + 行业包机制。",
-      "version": "1.0.0",
+      "description": "端到端生成最新一期行业月报：以上一期 docx 为模具，按月重采数据、11 道门禁校验、强制镜像到工作区。通用引擎 + 行业包机制。",
+      "version": "3.1.0",
       "author": {
         "name": "industry-report-update-skill authors"
       },
