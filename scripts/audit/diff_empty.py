@@ -14,6 +14,7 @@ v3 相对 v2 的改进（对应「键列用序号导致跨月误报」优化项�
 """
 import argparse
 import difflib
+import re
 import sys
 
 from docx import Document
@@ -60,19 +61,33 @@ _AUTO_KEY_NAMES = ('公司简称', '融资方', '公司名称', '标的公司名
                    '股票代码', '购买方名称', '购买方', '融资方主营业务', '项目')
 
 
+def _hdr_norm(s):
+    """表头归一化：去所有空白（含单元格内换行 ␤），'公司\n简称'→'公司简称'。"""
+    return re.sub(r'\s+', '', (s or ''))
+
+
 def _resolve_key_idx(table, key_col, key_col_name):
-    """优先按表头名称定位键列；未指定时按常见业务键列名自动识别；最后回退 --key-col 下标。"""
+    """优先按表头名称定位键列；未命中时按常见业务键列名**精确匹配**自动识别；最后才回退 --key-col 下标。
+
+    2026-09 修复：此前 run.py 强制传 --key-col-name 公司简称，行业动态表（键列=标的公司名称）
+    匹配不到「公司简称」，直接退回 --key-col=0（序号），造成跨月事件表大面积「序号对齐误报」。
+    现改为：① key_col_name 未命中 → 继续 _AUTO_KEY_NAMES 按本表表头自动识别；② 匹配用
+    「去空白后精确相等」而非子串包含——否则「融资方」会误配「融资方式」、「购买方」误配「购买方主营业务」、
+    「公司简称」因表头换行（公司␤简称）匹配不到而退回序号。
+    """
     if table.rows:
-        header = [c.text.strip() for c in table.rows[0].cells]
+        header = [_hdr_norm(c.text) for c in table.rows[0].cells]
         if key_col_name:
+            kn = _hdr_norm(key_col_name)
             for ci, h in enumerate(header):
-                if key_col_name in h:
+                if h == kn:
                     return ci
-        else:
-            for name in _AUTO_KEY_NAMES:
-                for ci, h in enumerate(header):
-                    if name in h:
-                        return ci
+        # 关键修复：key_col_name 未命中时，继续按表头精确匹配自动识别业务键（勿退回序号）
+        for name in _AUTO_KEY_NAMES:
+            nn = _hdr_norm(name)
+            for ci, h in enumerate(header):
+                if h == nn:
+                    return ci
     return key_col
 
 
@@ -138,8 +153,8 @@ def main():
     ap.add_argument('old_docx')
     ap.add_argument('new_docx')
     ap.add_argument('--key-col', type=int, default=0, help='键列下标（0=第一列），--key-col-name 优先')
-    ap.add_argument('--key-col-name', default='公司简称',
-                    help='按表头名称定位业务键列（如 "公司简称"/"标的公司名称"/"融资方"），默认 "公司简称"（v2 起默认业务键，避免序号对齐误报）')
+    ap.add_argument('--key-col-name', default='',
+                    help='按表头名称定位业务键列（如 "公司简称"/"标的公司名称"/"融资方"）。留空=按 _AUTO_KEY_NAMES 表头精确匹配自动识别（推荐）；仅当某表表头无业务键列时才显式指定')
     ap.add_argument('--out', default='空值对比报告.md')
     args = ap.parse_args()
 
@@ -203,7 +218,9 @@ def main():
         lines.append('- 无')
     lines += ['', '> 共 %d 处缺陷。凡「旧有值→新空值」必须补（法定代表人/PE-VC 等用 qcc 核实）。'
               % len(defects),
-              '> 若「替换行」明显增多，说明键列选错（业务键被当序号对齐），请改用 --key-col-name 指定业务键。']
+              '> 若「替换行」明显增多，说明键列选错（业务键被当序号对齐），请改用 --key-col-name 指定业务键。',
+              '> 注意：本门禁只抓「同业务键跨月丢字段」；事件/融资类表整批换血后的**新行自身漏填**',
+              '> 由 field_completeness.py（P0）负责，两者互补，不可互相替代。']
 
     with open(args.out, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))

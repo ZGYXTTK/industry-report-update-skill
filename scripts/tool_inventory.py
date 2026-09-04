@@ -29,6 +29,73 @@ if hasattr(sys.stdout, 'reconfigure'):
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = os.path.dirname(HERE)
 
+# harness 层连接名 → 工具清单/tool_registry 的 source 名（机检覆盖校验的别名映射）
+# 只登记「金融数据相关」连接；无关连接（Chrome DevTools/GitHub/Playwright 等）不要求覆盖。
+# 新增金融数据 harness 连接时在此补一行。
+_CONNECTION_ALIAS = {
+    'qcc-company': '企查查(qcc)',
+    'qcc-risk': '企查查(qcc)',
+    'qcc-ipr': '企查查(qcc)',
+    'qcc-operation': '企查查(qcc)',
+    'qcc-history': '企查查(qcc)',
+    'qcc-executive': '企查查(qcc)',
+    'qcc-legal-regulation': '企查查(qcc)',
+    'qcc-legal-case': '企查查(qcc)',
+    'qcc-tender': 'qcc-tender',
+    'qcc-document': 'qcc-document',
+    'qcc-document-mcp': 'qcc-document',
+    'hexin-ifind-ds-stock-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'hexin-ifind-ds-fund-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'hexin-ifind-ds-edb-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'hexin-ifind-ds-news-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'hexin-ifind-ds-bond-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'hexin-ifind-ds-global-stock-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'hexin-ifind-ds-index-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'hexin-ifind-ds-futures-mcp': 'hexin-ifind-ds (同花顺iFinD)',
+    'itjuzi-mcp': 'itjuzi (IT桔子)',
+    '烯牛MCP': '烯牛 mcp',
+    'mx-ds-mcp': 'mx-ds-mcp (东方财富)',
+    'QVerisMCP': 'QVeris',
+    'Wind·股票数据': 'wind_stock_data',
+    'cninfo': '上交所/深交所/北交所/证监会/港交所披露易/巨潮',
+    'mcp-hkexnews': '上交所/深交所/北交所/证监会/港交所披露易/巨潮',
+    'tushare': 'tushare',
+    'AKShare': 'akshare',
+    'Stock SDK 股票分析': 'stock-sdk',
+    'Tavily': '搜索',
+}
+
+
+def _alias_lookup(name):
+    """按名（大小写不敏感）查 _CONNECTION_ALIAS，返回映射到的 source 名或 None。"""
+    if not name:
+        return None
+    low = name.lower()
+    for k, v in _CONNECTION_ALIAS.items():
+        if k.lower() == low:
+            return v
+    return None
+
+
+def _load_discovered(path):
+    """读 通道发现.jsonl（discover_channels.py 产出，每行一个 JSON 对象）。返回 (rows, err)。"""
+    rows = []
+    try:
+        with open(path, encoding='utf-8') as f:
+            txt = f.read()
+    except OSError as e:
+        return None, '通道发现文件读取失败: %s' % e
+    txt = txt.lstrip('\ufeff').replace('\r\n', '\n')
+    for ln in txt.split('\n'):
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            rows.append(json.loads(ln))
+        except Exception:
+            rows.append({'_parse_fail': True})
+    return rows, None
+
 
 def _load_yaml_lite(path):
     """统一用 yaml_lite 加载（PyYAML 优先、mini 兜底）；解析失败显式退出，勿静默返回 {} 致门禁假通过。"""
@@ -61,6 +128,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--inventory', required=True)
     ap.add_argument('--registry', default=os.path.join(BASE, 'config', 'tool_registry.yaml'))
+    ap.add_argument('--discovered', default=None,
+                    help='通道发现.jsonl 路径（discover_channels.py 产出），提供时校验 harness 连接覆盖 + ❌证据门槛')
     ap.add_argument('--out', default=None)
     a = ap.parse_args()
 
@@ -104,6 +173,32 @@ def main():
     parse_fail = [r for r in inv if r.get('_parse_fail')]
     if parse_fail:
         problems.append('清单 %d 行 JSON 解析失败（编码/格式问题，需重写为 UTF-8）' % len(parse_fail))
+
+    # ④ harness 层连接覆盖校验（--discovered 提供时）：金融数据连接必须被盘点
+    disc_conn_count = 0
+    if a.discovered:
+        disc_rows, disc_err = _load_discovered(a.discovered)
+        if disc_err:
+            problems.append(disc_err)
+        elif disc_rows:
+            conns = [r for r in disc_rows
+                     if r.get('layer') == 'harness-connection'
+                     and r.get('enabled') and not r.get('error') and not r.get('_parse_fail')]
+            disc_conn_count = len(conns)
+            for c in conns:
+                src = _alias_lookup(c.get('name')) or _alias_lookup(c.get('key'))
+                if src is None:
+                    continue  # 无关连接（Chrome DevTools/GitHub 等），不要求覆盖
+                rec = inv_by_source.get(src)
+                if rec is None:
+                    problems.append('发现的 harness 连接「%s」未在清单中盘点（应映射到源「%s」）' % (c.get('name'), src))
+                elif rec.get('present') is False:
+                    problems.append('发现的 harness 连接「%s」在清单标记 present=false，但 harness 层 enabled=true（需实测确认）' % c.get('name'))
+
+    # ⑤ ❌ 证据门槛：smoke=fail 必须附实测失败证据（未探测不得标 ❌）
+    for src, rec in inv_by_source.items():
+        if rec.get('smoke') == 'fail' and not rec.get('evidence'):
+            problems.append('源「%s」smoke=fail 但缺 evidence 字段（需附实测探测命令+原始返回）' % src)
 
     ok = not problems
     lines = ['# 工具清单校验报告（tool_inventory.py）', '',

@@ -4,7 +4,7 @@
   "description": "把「逐条可溯源」从人工抽查升级为机器可反查的结构化记录。每行对应月报中一个承载数据的单元。",
   "type": "object",
   "required": ["cell", "value"],
-  "x-required-note": "出处二选一：source_file（源文件表格）或 url（网页来源）至少填一个；数值类建议补 source_key/source_field 锚点供 verify_value.py 回读",
+  "x-required-note": "出处二选一：source_file（源文件表格）或 url（网页来源）至少填一个；数值类建议补 source_key/source_field 锚点供 verify_value.py 回读；否定式结论（kind=negative 或 is_negative=true）必须补 query_statement + empty_result_evidence，供 section_completeness.py 校验",
   "additionalProperties": true,
   "properties": {
     "cell": {
@@ -14,6 +14,23 @@
     "value": {
       "type": ["string", "number"],
       "description": "月报中呈现的值"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["value", "negative", "roster", "config"],
+      "description": "数据点类型：value=普通数值/文本；negative=否定式结论（无/0家）；roster=名单（新增/移除标的）；config=口径/时点配置项"
+    },
+    "is_negative": {
+      "type": "boolean",
+      "description": "是否为否定式结论（kind=negative 的简写）。否定式结论审计风险更高：必须区分「没查」与「查了确实为0」"
+    },
+    "query_statement": {
+      "type": "string",
+      "description": "否定式结论的查询语句/依据（如「交易所官网查询 2026-08 再融资发行 返回 0 条」），证明确实查过而非照抄旧报告"
+    },
+    "empty_result_evidence": {
+      "type": "string",
+      "description": "空结果证据（查询接口、返回条数、或源文件路径），配合 query_statement 构成否定式结论的证据链"
     },
     "unit": {
       "type": "string",
