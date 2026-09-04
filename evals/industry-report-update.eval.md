@@ -34,11 +34,11 @@ evals/
 
 | # | 输入 | 期望 |
 | --- | --- | --- |
-| 1 | `fixtures_positive/old.docx` + `new.docx` + `溯源.jsonl` | 9 道门禁 ✅ 不误杀 |
+| 1 | `fixtures_positive/old.docx` + `new.docx` + `溯源.jsonl` | 11 道门禁 ✅ 不误杀 |
 | 2 | 同一对 + 无 `--roster-note` 变更摘要 | 6 道硬门禁 ✅；3 道软门禁（03/06/07）有 ⚠️ 但不阻断 |
 | 3 | 同一对 + `--soft-gates 03_diff_empty,06_reasonableness_check,07_format_diff` | 全部 ✅（软门禁显式降级） |
 | 4 | 同一对 + `--resume`（首次 --resume 跳过已通过门禁） | 第二次跑 ✅（无重复门禁输出） |
-| 5 | 跨月迁移：用上月 new.docx 作"旧"，用新 new.docx 作"新" | 9 道门禁 ✅（格式保真可迁移） |
+| 5 | 跨月迁移：用上月 new.docx 作"旧"，用新 new.docx 作"新" | 11 道门禁 ✅（格式保真可迁移） |
 
 ### 负向用例（2 个，必须被对应门禁拦截）
 
