@@ -1,12 +1,12 @@
 {
   "name": "industry-report-update-skill",
-  "version": "1.0.0",
+  "version": "3.1.0",
   "decision_contract": {
     "question": "用户是否提供了上一期行业月报 docx，且希望生成下一期月报？",
     "trigger": "用户输入『行业月报更新 / 月报更新 / 生成最新月报 / 更新月报 / generate monthly report』，或等价中文/英文表达",
     "decision": "满足 trigger 且用户提供上一期 docx → 执行本 Skill；不满足 → 拒绝并提示使用其他 Skill",
     "evidence": "用户输入触发词 + 用户上传/指向 docx 文件；本机有 python-docx + Python 3.10+",
-    "success_measure": "新月报 .docx 生成成功 + 9 道门禁全过（硬门槛）+ 工作区镜像完成（`archive_to_workspace.py` exit 0）"
+    "success_measure": "新月报 .docx 生成成功 + 11 道门禁全过（硬门槛）+ 工作区镜像完成（`archive_to_workspace.py` exit 0）"
   },
   "real_world_outcome": "用户从『每月手工抄数+word 排版+Excel 对数+邮件来回校稿』的 8 小时工作，缩短为『指定旧月报 → 4 小时内自动出新月报 → 盲审核对 → 交付』，每条数据可溯源到具体源文件",
   "intended_users": [
@@ -24,7 +24,7 @@
   "output_artifacts": [
     "新月报 .docx（与旧月报结构保真 ≥95%）",
     "runs/<run-id>/六件套：input/output/logs/download/sources/reviews + manifest.json",
-    "9 道门禁报告 + 门禁状态.json（断点续跑依据）",
+    "11 道门禁报告 + 门禁状态.json（断点续跑依据）",
     "工作区归档 `<工作区>/<产品名>_产出/`（Step 9.5 强制）"
   ],
   "use_cases": [
