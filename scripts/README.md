@@ -1,4 +1,4 @@
-# scripts · industry-report-update-skill 工具库（v1.0.0 · 开源版）
+# scripts · industry-report-update-skill 工具库（v3.1 · 开源版）
 
 本目录是 SKILL 的「可执行载体」，把铁律从口号变成可跑的门禁。
 公开版仅含**通用引擎 + 兜底行业包**，具体行业包由用户激活后通过 `pack.py wizard` 反推。
@@ -125,7 +125,7 @@ python scripts/pack.py wizard 旧月报.docx --name medtech
 python scripts/metrics.py record --ym 2026-09 --run-id <run-id> --gate format_diff=0.978 --downgrades 1
 python scripts/metrics.py trend
 
-# 工作区归档（Step 9.5 · P0-11 强制收尾 · v1.0.0）
+# 工作区归档（Step 9.5 · P0-11 强制收尾 · v3.1）
 #   --anchor 缺省时自动探测：--anchor 目录 > DSH_WORKSPACE > DSH_SESSION_JSONL > cwd
 #   产物镜像到 <当前对话工作区>/<产品名>_产出/
 python scripts/archive_to_workspace.py --run-id <run-id> --anchor "<输入旧月报路径>" --product "<产品名>"
