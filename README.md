@@ -101,7 +101,7 @@ git clone https://github.com/ZGYXTTK/industry-report-update-skill.git <目标路
 | Gemini CLI | `~/.gemini/skills/` |
 | 通用兜底（任何读取 AGENTS.md 的工具） | `~/.agents/skills/` |
 
-Tier 2/3（Windsurf / Trae / Junie / Zed / Augment / Aider / Continue.dev）：v1.0.0 未声明兼容，安装路径按 roadmap 补充。
+Tier 2/3（Windsurf / Trae / Junie / Zed / Augment / Aider / Continue.dev）：v3.1 未声明兼容，安装路径按 roadmap 补充。
 
 ---
 
@@ -176,7 +176,7 @@ industry-report-update-skill/
 
 ---
 
-## 兼容性（v1.0.0 实际声明）
+## 兼容性（v3.1 实际声明）
 
 - **Tier 1**（原生 SKILL.md，12 工具）：Claude Code / Cursor / Gemini / Kiro / Goose / OpenCode / Cline / Roo / Kilo / Factory / Antigravity / Codex CLI
 - **Tier 2/3**：未声明兼容（roadmap 补充中）
@@ -217,7 +217,7 @@ pip install -r requirements.txt
 
 ## 与姊妹项目的关系
 
-本 Skill 是 `industry-report-update` v2.1 母版的完整公开版（Apache-2.0）。
+本 Skill 是 `industry-report-update` 的完整开源版（Apache-2.0）。
 姊妹项目：
 - `gfreport-renew-skill` v0.2.0（https://github.com/ZGYXTTK/GFreport-renew-skill）—— JSON 配置 + jsonschema 强校验 + 11 道门禁（含哈希绑定交付物指纹）的轻量派生版
 
@@ -227,7 +227,7 @@ pip install -r requirements.txt
 
 ---
 
-## 质量与验证状态（v1.0.0 发布基线）
+## 质量与验证状态（v3.1 发布基线）
 
 | 评估项 | 状态 |
 | --- | --- |

@@ -17,7 +17,7 @@ pwsh -File install.ps1  # Windows
 # 安装器自动链接到 12 个 Tier-1 工具 + 通用 ~/.agents/skills/ 兜底
 
 # Tier 2/3（Windsurf / Trae / Junie / Zed / Augment / Aider / Continue.dev）
-# v1.0.0 未声明兼容，安装路径按 roadmap 补充
+# v3.1 未声明兼容，安装路径按 roadmap 补充
 ```
 
 ### 2. 触发
@@ -45,7 +45,7 @@ Agent 会向你提 ≤5 个必填问题（如"数据截至日期是否 2026-08-3
 产出在 `<工作区>/<产品名>_产出/`：
 - 根：`新月报.docx` + `变更摘要.md`
 - `源文件/`：交易所 CSV、溯源.jsonl、通道实测.jsonl
-- `门禁报告/`：9 道门禁报告 + 运行日志
+- `门禁报告/`：11 道门禁报告 + 运行日志
 
 ---
 
@@ -61,7 +61,7 @@ Agent 会向你提 ≤5 个必填问题（如"数据截至日期是否 2026-08-3
 | 4 | 确认清单 | Agent 走 `templates/确认清单模板.md` | 必填 ≤5 条 |
 | 5 | 数据采集 + 改写 | `datasources/adapters.py` + `docx_utils.py` + 子 Agent fan-out | 保格式改写 + 断点续跑 |
 | 5.5 | 锚点自检 | `audit/anchor_check.py 溯源.jsonl` | dry-run 前置 |
-| 6 | 门禁循环 | `run.py 旧.docx 新.docx ...` | 一键 9 道门禁；中断加 `--resume` |
+| 6 | 门禁循环 | `run.py 旧.docx 新.docx ...` | 一键 11 道门禁；中断加 `--resume` |
 | 7 | 来源归档 | Agent 写 `溯源.jsonl` + `verify_value.py` | 数值回读 |
 | 8 | 独立盲审 | 子 Agent 走 `templates/subagent任务模板.md` 第六节 | 失败降级 mainagent 并标注 |
 | 9 | 归档 + 度量 | `metrics.py record --ym <YYYY-MM> --run-id <run-id> --gate format_diff=<得分>` | `runs/<run-id>/` 六件套 |
